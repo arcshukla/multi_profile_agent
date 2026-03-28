@@ -1,0 +1,31 @@
+# Environment / secrets
+.env
+*.env
+
+# Runtime data — never commit profiles or logs
+profiles/
+logs/
+system/
+static/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.claude/
+.venv/
+venv/
+env/
+
+# ChromaDB / vector index
+*.sqlite3
+*.bin
+
+# OS
+.DS_Store
+Thumbs.db

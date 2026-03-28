@@ -1,0 +1,168 @@
+{% extends "owner/layout.html" %}
+{% set active_page = "dashboard" %}
+{% block content %}
+
+<div class="mb-6">
+  <div class="flex items-center gap-3 mb-1">
+    <div class="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+    </div>
+    <h1 class="text-xl font-semibold text-gray-900">Dashboard</h1>
+  </div>
+  <p class="text-sm text-gray-500 mt-0.5 ml-12">
+    Welcome back, <strong>{{ user.name or user.email }}</strong>.
+    {% if profile %} Managing <strong>{{ profile.slug }}</strong>.{% endif %}
+  </p>
+</div>
+
+<!-- Status cards -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+  <!-- Index status -->
+  <div class="bg-white rounded-xl border border-gray-200 p-5">
+    <div class="flex items-center gap-2 mb-2">
+      <div class="w-7 h-7 rounded-lg bg-sky-100 flex items-center justify-center">
+        <svg class="w-4 h-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 11c0 2.21 3.582 4 8 4s8-1.79 8-4"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 font-medium">Index Status</p>
+    </div>
+    {% if status and status.status == "success" %}
+    <p class="text-lg font-bold text-green-600">Indexed</p>
+    <p class="text-xs text-gray-400 mt-1">{{ status.chunk_count or 0 }} chunks</p>
+    {% elif status and status.status == "running" %}
+    <p class="text-lg font-bold text-amber-500">Indexing…</p>
+    {% else %}
+    <p class="text-lg font-bold text-gray-400">Not indexed</p>
+    <p class="text-xs text-gray-400 mt-1">Upload docs and request re-index</p>
+    {% endif %}
+  </div>
+
+  <!-- Token usage -->
+  <div class="bg-white rounded-xl border border-gray-200 p-5">
+    <div class="flex items-center gap-2 mb-2">
+      <div class="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+        <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 font-medium">Tokens Used</p>
+    </div>
+    <p class="text-lg font-bold text-emerald-600">
+      {{ "{:,}".format((usage.indexing_total or 0) + (usage.intent_total or 0) + (usage.query_total or 0)) }}
+    </p>
+    <p class="text-xs text-gray-400 mt-1">
+      {{ (usage.query_calls or 0) }} chat call{{ "s" if (usage.query_calls or 0) != 1 else "" }}
+    </p>
+    <a href="/owner/ai" class="text-xs text-emerald-500 hover:underline mt-1 inline-block">View usage &amp; index →</a>
+  </div>
+
+  <!-- Profile status + toggle -->
+  <div class="bg-white rounded-xl border border-gray-200 p-5">
+    <div class="flex items-center gap-2 mb-2">
+      <div class="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
+        <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-xs text-gray-500 font-medium">Profile Status</p>
+    </div>
+    {% if profile %}
+    <div id="status-btn" class="mb-2">
+      {% if profile.status == "enabled" %}
+      <button hx-post="/owner/status?status=disabled" hx-target="#status-btn" hx-swap="outerHTML"
+        class="inline-flex items-center gap-1.5 text-xs font-medium bg-green-100 text-green-700
+               hover:bg-red-50 hover:text-red-600 px-3 py-1.5 rounded-full border border-green-200
+               hover:border-red-200 transition-colors">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Live — click to disable
+      </button>
+      {% else %}
+      <button hx-post="/owner/status?status=enabled" hx-target="#status-btn" hx-swap="outerHTML"
+        class="inline-flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-600
+               hover:bg-green-50 hover:text-green-700 px-3 py-1.5 rounded-full border border-gray-200
+               hover:border-green-200 transition-colors">
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Disabled — click to enable
+      </button>
+      {% endif %}
+    </div>
+    <a href="/chat/{{ profile.slug }}" target="_blank"
+      class="text-xs text-indigo-500 hover:underline inline-flex items-center gap-1">
+      View public chat
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+      </svg>
+    </a>
+    {% else %}
+    <p class="text-lg font-bold text-gray-400">Unknown</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Billing status banner (paid tiers only) -->
+{% if billing_entry and billing_entry.tier.value != "free" %}
+<div class="bg-white rounded-xl border {{ 'border-red-300 bg-red-50' if billing_status and billing_status.billing_due else 'border-gray-200' }} p-4 mb-6">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg {{ 'bg-red-100' if billing_status and billing_status.billing_due else 'bg-orange-100' }} flex items-center justify-center">
+        <svg class="w-4 h-4 {{ 'text-red-600' if billing_status and billing_status.billing_due else 'text-orange-600' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-gray-800">Billing</p>
+        <p class="text-xs text-gray-400">
+          {{ billing_entry.tier.value | replace("_", " ") | title }}
+        </p>
+      </div>
+    </div>
+    {% if billing_status and billing_status.billing_due %}
+    <span class="inline-flex items-center gap-1.5 text-xs font-semibold bg-red-100 text-red-700 px-3 py-1 rounded-full border border-red-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Payment Overdue
+    </span>
+    {% else %}
+    <span class="inline-flex items-center gap-1.5 text-xs font-semibold bg-green-100 text-green-700 px-3 py-1 rounded-full border border-green-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Up to date
+    </span>
+    {% endif %}
+  </div>
+  <a href="/owner/billing" class="text-xs text-indigo-500 hover:underline mt-2 inline-block ml-11">View billing details →</a>
+</div>
+{% endif %}
+
+<!-- Quick actions -->
+<div class="bg-white rounded-xl border border-gray-200 p-5">
+  <h2 class="text-sm font-semibold text-gray-700 mb-4">Quick Actions</h2>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+    {% for href, label, desc, icon_path, bg, fg in [
+      ("docs",       "Documents",   "Upload or remove files",       "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", "bg-amber-50 border-amber-200 hover:border-amber-400", "text-amber-600"),
+      ("appearance", "Appearance",  "Photo, header & styles",       "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01", "bg-violet-50 border-violet-200 hover:border-violet-400", "text-violet-600"),
+      ("prompts",    "Prompts",     "Customise chat responses",     "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z", "bg-rose-50 border-rose-200 hover:border-rose-400", "text-rose-600"),
+      ("analytics",  "Analytics",   "View visitor questions",       "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", "bg-sky-50 border-sky-200 hover:border-sky-400", "text-sky-600"),
+    ] %}
+    <a href="/owner/{{ href }}"
+      class="flex flex-col items-center gap-2 p-4 rounded-xl border {{ bg }} transition-colors text-center group">
+      <div class="w-10 h-10 rounded-xl {{ bg }} flex items-center justify-center">
+        <svg class="w-5 h-5 {{ fg }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ icon_path }}"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-gray-800">{{ label }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ desc }}</p>
+      </div>
+    </a>
+    {% endfor %}
+
+  </div>
+</div>
+
+{% endblock %}

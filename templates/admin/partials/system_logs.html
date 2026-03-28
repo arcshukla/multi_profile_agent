@@ -1,0 +1,35 @@
+<!-- System: Logs viewer partial -->
+<div class="space-y-4">
+  <div class="flex flex-wrap items-center gap-3">
+    <h2 class="text-sm font-semibold text-gray-700">System Logs</h2>
+    <form hx-get="/admin/system/logs" hx-target="#sys-content" hx-swap="innerHTML" class="flex flex-wrap gap-2 ml-auto">
+      <select name="log_type"
+        class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="app" {% if log_type=="app" %}selected{% endif %}>app.log</option>
+        <option value="indexing" {% if log_type=="indexing" %}selected{% endif %}>indexing.log</option>
+        <option value="chat" {% if log_type=="chat" %}selected{% endif %}>chat.log</option>
+        {% for s in profile_slugs %}
+        <option value="profile" data-slug="{{ s }}" {% if log_type=="profile" and slug==s %}selected{% endif %}>profile: {{ s }}</option>
+        {% endfor %}
+      </select>
+      <input name="search" value="{{ search or '' }}" placeholder="Search…"
+        class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <select name="tail"
+        class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="50" {% if tail==50 %}selected{% endif %}>50 lines</option>
+        <option value="200" {% if tail==200 %}selected{% endif %}>200 lines</option>
+        <option value="500" {% if tail==500 %}selected{% endif %}>500 lines</option>
+      </select>
+      <button type="submit" class="text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors">Refresh</button>
+    </form>
+  </div>
+
+  <div class="bg-gray-900 rounded-xl overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-700">
+      <span class="text-xs font-mono text-gray-400">{{ log_type }}{% if slug %} / {{ slug }}{% endif %} — {{ total_lines }} total lines</span>
+    </div>
+    <div class="overflow-x-auto">
+      <pre class="text-xs text-green-400 font-mono p-4 whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto">{% if lines %}{{ lines | join("\n") }}{% else %}No log entries found.{% endif %}</pre>
+    </div>
+  </div>
+</div>

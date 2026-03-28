@@ -1,0 +1,461 @@
+{% extends "owner/layout.html" %}
+{% set active_page = "appearance" %}
+{% block content %}
+
+<div class="mb-6">
+  <div class="flex items-center gap-3 mb-1">
+    <div class="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+      </svg>
+    </div>
+    <h1 class="text-xl font-semibold text-gray-900">Appearance</h1>
+  </div>
+  <p class="text-sm text-gray-500 mt-0.5 ml-12">Customise the photo, header and styles shown on your public chat page.</p>
+</div>
+
+<div class="space-y-6">
+
+  <!-- ── Profile Photo ──────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
+      <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <p class="text-sm font-semibold text-gray-800">Profile Photo</p>
+    </div>
+    <div class="p-5">
+      <div class="flex items-start gap-6">
+        <div class="flex-shrink-0 text-center">
+          {% if has_photo %}
+          <img id="photo-preview-img" src="/api/profiles/{{ slug }}/photo" alt="Profile photo"
+            class="w-24 h-24 rounded-full object-cover border-2 border-gray-200 shadow-sm"/>
+          {% else %}
+          <div id="photo-preview-img"
+            class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-3xl border-2 border-dashed border-gray-300">
+            {{ (user.name or user.email)[0] | upper }}
+          </div>
+          {% endif %}
+          <p id="photo-preview-label" class="text-xs text-gray-400 mt-1.5 hidden">Preview</p>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm text-gray-600 mb-3">Upload a square JPG or PNG. This appears on your public chat page.</p>
+          <form hx-post="/owner/photo" hx-encoding="multipart/form-data"
+            hx-target="#photo-status" hx-swap="innerHTML" class="space-y-3">
+            <div class="flex items-center gap-3">
+              <input type="file" name="file" accept="image/*" onchange="previewProfilePhoto(this)"
+                class="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                       file:text-xs file:font-medium file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+              <button type="submit" id="photo-upload-btn" disabled
+                class="px-4 py-1.5 text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700
+                       transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Upload</button>
+            </div>
+            <div id="photo-status" class="text-xs text-gray-400"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Header HTML ────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
+      <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+      </svg>
+      <p class="text-sm font-semibold text-gray-800">Header HTML</p>
+      <span class="ml-auto text-xs text-gray-400">Rendered at the top of your public chat page</span>
+    </div>
+    <div class="p-5 space-y-4">
+      <div class="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+        💡 You can use plain HTML, embed an image with
+        <code class="bg-blue-100 px-1 rounded">&lt;img src="https://…" /&gt;</code>,
+        or keep the built-in carousel structure. The preview below shows exactly how it will look.
+      </div>
+      <form hx-post="/owner/appearance/header" hx-target="#header-status" hx-swap="innerHTML" class="space-y-3">
+        <textarea name="content" id="header-editor" rows="10"
+          oninput="updateHeaderPreview(this.value)"
+          class="w-full font-mono text-xs border border-gray-200 rounded-lg p-3 resize-y
+                 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-gray-50 leading-relaxed"
+        >{{ header_html }}</textarea>
+        <div class="flex items-center gap-3">
+          <button type="submit"
+            class="px-4 py-1.5 text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">
+            Save Header
+          </button>
+          <span id="header-status" class="text-xs text-gray-400"></span>
+        </div>
+      </form>
+
+      <!-- Live preview -->
+      <div>
+        <p class="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          Live Preview
+          <span class="text-gray-300 ml-1">— with your current styles &amp; carousel</span>
+        </p>
+        <div class="border border-dashed border-gray-200 rounded-lg overflow-hidden bg-white">
+          <iframe id="header-preview-frame" srcdoc="" class="w-full" style="min-height:140px;border:none;"
+            scrolling="no" onload="autoResizeFrame(this)"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Color Scheme / CSS ─────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
+      <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+      </svg>
+      <p class="text-sm font-semibold text-gray-800">Color Scheme / CSS</p>
+    </div>
+
+    <div class="p-5 space-y-6">
+
+      <!-- Group 1: General -->
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">General</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {% macro picker(id, label, default) %}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ label }}</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="{{ id }}" value="{{ default }}"
+                oninput="syncPicker('{{ id }}', this.value)"
+                class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5 flex-shrink-0"/>
+              <input type="text" id="{{ id }}-text" value="{{ default }}"
+                oninput="syncPickerText('{{ id }}', this.value)"
+                class="flex-1 min-w-0 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5
+                       focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+            </div>
+          </div>
+          {% endmacro %}
+
+          {{ picker("pick-bg",      "Background",    "#f8fafc") }}
+          {{ picker("pick-text",    "Body Text",     "#0f172a") }}
+          {{ picker("pick-primary", "Primary Accent","#4f46e5") }}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Font</label>
+            <select id="pick-font" onchange="updateFont(this.value)"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-2
+                     focus:outline-none focus:ring-2 focus:ring-violet-300">
+              <option value="Inter">Inter (default)</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Georgia">Georgia (serif)</option>
+              <option value="Merriweather">Merriweather</option>
+              <option value="Lato">Lato</option>
+              <option value="Poppins">Poppins</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 2: User Bubble -->
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">User Bubble</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {{ picker("pick-bubble-user",      "Background",  "#4f46e5") }}
+          {{ picker("pick-bubble-user-text", "Text Color",  "#ffffff") }}
+        </div>
+      </div>
+
+      <!-- Group 3: Bot Bubble -->
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Bot Bubble</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {{ picker("pick-bubble-bot",      "Background", "#add8e6") }}
+          {{ picker("pick-bubble-bot-text", "Text Color", "#334155") }}
+        </div>
+      </div>
+
+      <!-- Preview strip -->
+      <div>
+        <p class="text-xs font-medium text-gray-500 mb-2">Preview</p>
+        <div id="css-preview-strip"
+          class="rounded-lg border border-gray-200 p-3 text-xs flex items-center gap-3 flex-wrap">
+          <div id="prev-bubble-user" class="px-3 py-1.5 rounded-xl font-medium"
+            style="background:#4f46e5;color:#ffffff">User message</div>
+          <div id="prev-bubble-bot" class="px-3 py-1.5 rounded-xl"
+            style="background:#add8e6;color:#334155">Bot reply</div>
+          <div id="prev-text" class="font-medium" style="color:#0f172a">Body text sample</div>
+          <div id="prev-bg" class="px-3 py-1.5 rounded-lg border text-gray-500"
+            style="background:#f8fafc">Page background</div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex gap-3 pt-1">
+        <button onclick="saveCss()"
+          class="text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg transition-colors">
+          Save Styles
+        </button>
+        <button onclick="resetCssPickers()"
+          class="text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors">
+          Reset to Defaults
+        </button>
+        <span id="css-status" class="self-center text-xs text-gray-400 ml-1"></span>
+      </div>
+
+      <!-- Advanced raw CSS -->
+      <details>
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">
+          Advanced: edit raw CSS
+        </summary>
+        <textarea id="raw-css-editor" rows="12"
+          class="mt-2 w-full text-xs font-mono border border-gray-200 rounded-lg px-3 py-2.5
+                 focus:outline-none focus:ring-2 focus:ring-violet-300 resize-y"
+        >{{ profile_css }}</textarea>
+        <div class="flex items-center gap-3 mt-2">
+          <button onclick="saveRawCss()"
+            class="text-xs font-medium text-white bg-gray-700 hover:bg-gray-800 px-3 py-1.5 rounded-lg transition-colors">
+            Save Raw CSS
+          </button>
+          <span id="raw-css-status" class="text-xs text-gray-400"></span>
+        </div>
+      </details>
+
+    </div>
+  </div>
+
+</div><!-- /space-y-6 -->
+
+<script>
+// ── Photo preview ──────────────────────────────────────────────────────────────
+function previewProfilePhoto(input) {
+  const btn = document.getElementById('photo-upload-btn');
+  if (!input.files || !input.files[0]) { btn.disabled = true; return; }
+  btn.disabled = false;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const el = document.getElementById('photo-preview-img');
+    if (el.tagName === 'IMG') {
+      el.src = e.target.result;
+    } else {
+      const img = document.createElement('img');
+      img.id = 'photo-preview-img';
+      img.src = e.target.result;
+      img.alt = 'Preview';
+      img.className = 'w-24 h-24 rounded-full object-cover border-2 border-violet-200 shadow-sm';
+      el.replaceWith(img);
+    }
+    document.getElementById('photo-preview-label').classList.remove('hidden');
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+// ── Header preview (iframe with full carousel CSS + JS) ───────────────────────
+const CAROUSEL_CSS = `
+  .arc-wrap     { position:relative; }
+  .arc-overflow { overflow:hidden; }
+  .arc-slides   { display:flex; transition:transform 0.35s ease; }
+  .arc-slide    { min-width:100%; padding:2px 0 6px; }
+  .arc-title    { font-weight:600; font-size:0.9rem; color:#0f172a; margin-bottom:5px; line-height:1.4; }
+  .arc-creds    { font-size:0.78rem; color:#4a5568; margin-bottom:5px; line-height:1.5; }
+  .arc-sep      { margin:0 5px; opacity:0.45; }
+  .arc-body     { font-size:0.82rem; color:#334155; line-height:1.6; }
+  .arc-body-spaced { letter-spacing:0.02em; }
+  .arc-quote    { font-style:italic; font-size:0.85rem; color:#1e293b; line-height:1.7; margin-bottom:7px; }
+  .arc-attr     { font-size:0.75rem; color:#64748b; }
+  .arc-nav      { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; }
+  .arc-btn      { width:28px; height:28px; border-radius:50%; border:1px solid #c8d5e0; background:white;
+                  display:flex; align-items:center; justify-content:center; cursor:pointer;
+                  color:#475569; transition:background 0.15s; flex-shrink:0; }
+  .arc-btn:hover { background:#f1f5f9; border-color:#94a3b8; }
+  .arc-dots     { display:flex; gap:6px; align-items:center; }
+  .arc-dot      { width:7px; height:7px; border-radius:50%; background:#b8ccd8;
+                  transition:background 0.2s, transform 0.2s; cursor:pointer; }
+  .arc-dot.active { background:var(--color-primary,#4f46e5); transform:scale(1.25); }
+`;
+
+const CAROUSEL_JS = `
+(function(){
+  const slides = document.getElementById('arc-slides');
+  if(!slides) return;
+  const dotsEl = document.getElementById('arc-dots');
+  const total  = slides.children.length;
+  let current=0, timer;
+  for(let i=0;i<total;i++){
+    const d=document.createElement('span');
+    d.className='arc-dot'+(i===0?' active':'');
+    d.addEventListener('click',()=>{goTo(i);resetTimer();});
+    dotsEl.appendChild(d);
+  }
+  function goTo(n){
+    current=(n+total)%total;
+    slides.style.transform='translateX(-'+current*100+'%)';
+    dotsEl.querySelectorAll('.arc-dot').forEach((d,i)=>d.classList.toggle('active',i===current));
+  }
+  function resetTimer(){ clearInterval(timer); timer=setInterval(()=>goTo(current+1),5000); }
+  document.getElementById('arc-prev')?.addEventListener('click',()=>{goTo(current-1);resetTimer();});
+  document.getElementById('arc-next')?.addEventListener('click',()=>{goTo(current+1);resetTimer();});
+  resetTimer();
+})();
+`;
+
+function getProfileCss() {
+  const raw = document.getElementById('raw-css-editor');
+  return raw ? raw.value : '';
+}
+
+function buildPreviewDoc(html) {
+  return `<!DOCTYPE html><html><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  body { margin:0; padding:16px; font-family:sans-serif; box-sizing:border-box; }
+  ${CAROUSEL_CSS}
+  ${getProfileCss()}
+</style>
+</head><body>
+${html}
+<script>${CAROUSEL_JS}<\/script>
+</body></html>`;
+}
+
+function updateHeaderPreview(html) {
+  const frame = document.getElementById('header-preview-frame');
+  frame.srcdoc = buildPreviewDoc(html);
+}
+
+function autoResizeFrame(frame) {
+  try {
+    const h = frame.contentDocument.body.scrollHeight;
+    frame.style.height = Math.max(140, h + 20) + 'px';
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const editor = document.getElementById('header-editor');
+  if (editor) updateHeaderPreview(editor.value);
+});
+
+// ── CSS picker helpers ─────────────────────────────────────────────────────────
+const DEFAULTS = {
+  'pick-bg':              '#f8fafc',
+  'pick-text':            '#0f172a',
+  'pick-primary':         '#4f46e5',
+  'pick-bubble-user':     '#4f46e5',
+  'pick-bubble-user-text':'#ffffff',
+  'pick-bubble-bot':      '#add8e6',
+  'pick-bubble-bot-text': '#334155',
+};
+
+function syncPicker(id, value) {
+  document.getElementById(id + '-text').value = value;
+  applyPickerPreview(id, value);
+}
+function syncPickerText(id, value) {
+  document.getElementById(id).value = value;
+  applyPickerPreview(id, value);
+}
+function applyPickerPreview(id, value) {
+  const map = {
+    'pick-bg':               () => document.getElementById('prev-bg').style.background = value,
+    'pick-text':             () => document.getElementById('prev-text').style.color = value,
+    'pick-primary':          () => {},
+    'pick-bubble-user':      () => document.getElementById('prev-bubble-user').style.background = value,
+    'pick-bubble-user-text': () => document.getElementById('prev-bubble-user').style.color = value,
+    'pick-bubble-bot':       () => document.getElementById('prev-bubble-bot').style.background = value,
+    'pick-bubble-bot-text':  () => document.getElementById('prev-bubble-bot').style.color = value,
+  };
+  if (map[id]) map[id]();
+}
+
+function updateFont(font) {
+  document.getElementById('css-preview-strip').style.fontFamily = font + ', sans-serif';
+}
+
+function val(id) { return document.getElementById(id).value; }
+
+function buildCssFromPickers() {
+  return `:root {
+  --color-primary:          ${val('pick-primary')};
+  --color-bg:               ${val('pick-bg')};
+  --color-text:             ${val('pick-text')};
+  --color-bubble-user:      ${val('pick-bubble-user')};
+  --color-bubble-user-text: ${val('pick-bubble-user-text')};
+  --color-bubble-bot:       ${val('pick-bubble-bot')};
+  --color-bubble-bot-text:  ${val('pick-bubble-bot-text')};
+  --font-family:            '${val('pick-font')}', sans-serif;
+}
+body        { background: var(--color-bg); color: var(--color-text); font-family: var(--font-family); }
+.bubble-user { background: var(--color-bubble-user); color: var(--color-bubble-user-text); }
+.bubble-bot  { background: var(--color-bubble-bot);  color: var(--color-bubble-bot-text); }
+a, .btn-primary { background: var(--color-primary); }
+`;
+}
+
+function saveCss() {
+  const css = buildCssFromPickers();
+  document.getElementById('raw-css-editor').value = css;
+  postCss(css, 'css-status');
+}
+
+function saveRawCss() {
+  postCss(document.getElementById('raw-css-editor').value, 'raw-css-status');
+}
+
+function postCss(css, statusId) {
+  const el = document.getElementById(statusId);
+  el.textContent = 'Saving…';
+  const fd = new FormData();
+  fd.append('content', css);
+  fetch('/owner/appearance/css', { method: 'POST', body: fd })
+    .then(r => r.text()).then(h => { el.innerHTML = h; })
+    .catch(() => { el.textContent = 'Error saving.'; });
+}
+
+function resetCssPickers() {
+  Object.entries(DEFAULTS).forEach(([id, v]) => {
+    document.getElementById(id).value = v;
+    document.getElementById(id + '-text').value = v;
+    applyPickerPreview(id, v);
+  });
+  document.getElementById('pick-font').value = 'Inter';
+  updateFont('Inter');
+}
+
+// Initialise pickers from existing raw CSS
+(function initPickersFromCss() {
+  const raw = document.getElementById('raw-css-editor').value;
+  function extract(varName) {
+    const m = raw.match(new RegExp(varName.replace('-','\\-') + '\\s*:\\s*([^;\\n]+)'));
+    return m ? m[1].trim() : null;
+  }
+  const map = {
+    'pick-bg':               extract('--color-bg'),
+    'pick-text':             extract('--color-text'),
+    'pick-primary':          extract('--color-primary'),
+    'pick-bubble-user':      extract('--color-bubble-user') || extract('--color-bubble-user\\b'),
+    'pick-bubble-user-text': extract('--color-bubble-user-text'),
+    'pick-bubble-bot':       extract('--color-bubble-bot') || extract('--color-bubble-bot\\b'),
+    'pick-bubble-bot-text':  extract('--color-bubble-bot-text'),
+  };
+  Object.entries(map).forEach(([id, v]) => {
+    if (!v) return;
+    const picker = document.getElementById(id);
+    const text   = document.getElementById(id + '-text');
+    if (picker) picker.value = v;
+    if (text)   text.value   = v;
+    applyPickerPreview(id, v);
+  });
+  const fontMatch = raw.match(/--font-family\s*:\s*'?([^',;\n]+)/);
+  if (fontMatch) {
+    const font = fontMatch[1].trim();
+    const sel = document.getElementById('pick-font');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value.toLowerCase() === font.toLowerCase()) { sel.selectedIndex = i; break; }
+    }
+    updateFont(font);
+  }
+})();
+</script>
+
+{% endblock %}

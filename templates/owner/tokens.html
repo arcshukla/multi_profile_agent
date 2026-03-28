@@ -1,0 +1,66 @@
+{% extends "owner/layout.html" %}
+{% set active_page = "tokens" %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="text-xl font-semibold text-gray-900">Token Usage</h1>
+  <p class="text-sm text-gray-500 mt-0.5">LLM token consumption for your profile.</p>
+</div>
+
+{% set indexing_total = usage.indexing_total or 0 %}
+{% set intent_total   = usage.intent_total   or 0 %}
+{% set query_total    = usage.query_total    or 0 %}
+{% set grand_total    = indexing_total + intent_total + query_total %}
+
+<!-- Summary chips -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+  {% for label, toks, calls in [
+    ("Indexing",    indexing_total, usage.indexing_calls or 0),
+    ("Intent",      intent_total,   usage.intent_calls   or 0),
+    ("Chat",        query_total,    usage.query_calls    or 0),
+    ("Grand Total", grand_total,    (usage.indexing_calls or 0) + (usage.intent_calls or 0) + (usage.query_calls or 0)),
+  ] %}
+  <div class="bg-white rounded-xl border border-gray-200 p-5 text-center">
+    <p class="text-xs text-gray-500 mb-1">{{ label }}</p>
+    <p class="text-xl font-bold text-indigo-600">{{ "{:,}".format(toks) }}</p>
+    <p class="text-xs text-gray-400 mt-1">{{ calls }} call{{ "s" if calls != 1 else "" }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Breakdown table -->
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="bg-gray-50 border-b border-gray-100 px-5 py-3">
+    <h2 class="text-sm font-semibold text-gray-700">Breakdown</h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="border-b border-gray-100">
+      <tr>
+        <th class="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Operation</th>
+        <th class="text-right px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Prompt</th>
+        <th class="text-right px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Completion</th>
+        <th class="text-right px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
+        <th class="text-right px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Calls</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100 font-mono text-xs">
+      {% for op in ["indexing", "intent", "query"] %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-5 py-3 font-sans text-gray-700 capitalize">{{ op }}</td>
+        <td class="px-5 py-3 text-right text-gray-600">{{ "{:,}".format(usage.get(op ~ "_prompt", 0)) }}</td>
+        <td class="px-5 py-3 text-right text-gray-600">{{ "{:,}".format(usage.get(op ~ "_completion", 0)) }}</td>
+        <td class="px-5 py-3 text-right font-semibold text-gray-800">{{ "{:,}".format(usage.get(op ~ "_total", 0)) }}</td>
+        <td class="px-5 py-3 text-right text-gray-500">{{ usage.get(op ~ "_calls", 0) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-gray-400 mt-3">
+  <strong>Indexing</strong> = document processing &nbsp;|&nbsp;
+  <strong>Intent</strong> = topic classification per query &nbsp;|&nbsp;
+  <strong>Chat</strong> = main response + followup generation
+</p>
+
+{% endblock %}

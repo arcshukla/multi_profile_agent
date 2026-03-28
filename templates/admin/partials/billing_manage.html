@@ -1,0 +1,120 @@
+<!-- Admin billing partial — loaded via hx-get="/admin/billing/{slug}" -->
+<div id="billing-manage-{{ slug }}" class="space-y-5">
+
+  <!-- ── Tier selector ──────────────────────────────────────────────────── -->
+  <div>
+    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Billing Tier</p>
+    <form hx-post="/admin/billing/{{ slug }}/tier"
+          hx-target="#billing-manage-{{ slug }}"
+          hx-swap="outerHTML"
+          class="flex items-center gap-3">
+      <select name="tier"
+              class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+        {% for val, label in [
+          ("free",             "Free"),
+          ("paid_individual",  "Paid Individual (₹" ~ platform_fee|int ~ "/period)"),
+          ("paid_enterprise",  "Paid Enterprise"),
+        ] %}
+        <option value="{{ val }}" {{ "selected" if billing_entry.tier.value == val else "" }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit"
+              class="text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors">
+        Save Tier
+      </button>
+    </form>
+    {% if billing_entry.tier_changed_at %}
+    <p class="text-xs text-gray-400 mt-1.5">
+      Changed {{ billing_entry.tier_changed_at[:10] }} by {{ billing_entry.tier_changed_by or "admin" }}
+    </p>
+    {% endif %}
+  </div>
+
+  <!-- ── Invoice actions (only for paid tiers) ──────────────────────────── -->
+  {% if billing_entry.tier.value != "free" %}
+  <div class="border-t border-gray-100 pt-4">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Current Status</p>
+      {% if billing_status.billing_due %}
+      <span class="inline-flex items-center gap-1 text-xs font-semibold bg-red-100 text-red-700 px-2.5 py-1 rounded-full">
+        <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Payment Overdue
+      </span>
+      {% else %}
+      <span class="inline-flex items-center gap-1 text-xs font-semibold bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Up to date
+      </span>
+      {% endif %}
+    </div>
+
+    <!-- Create invoice button -->
+    {% set has_pending = billing_entry.invoices | selectattr("status.value", "equalto", "pending") | list | length > 0 %}
+    <button
+      hx-post="/admin/billing/{{ slug }}/invoice"
+      hx-target="#billing-manage-{{ slug }}"
+      hx-swap="outerHTML"
+      {% if has_pending %}disabled title="An open invoice already exists"{% endif %}
+      class="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors
+             {{ 'bg-gray-100 text-gray-400 cursor-not-allowed' if has_pending
+                else 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200' }}">
+      + Create Invoice
+    </button>
+  </div>
+
+  <!-- ── Invoice list ───────────────────────────────────────────────────── -->
+  {% if billing_entry.invoices %}
+  <div class="border-t border-gray-100 pt-4">
+    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Invoices</p>
+    <div class="space-y-2">
+      {% for inv in billing_entry.invoices | reverse %}
+      <div class="flex items-center justify-between gap-3 rounded-lg border
+                  {{ 'border-green-200 bg-green-50' if inv.status.value == 'paid'
+                     else ('border-red-200 bg-red-50' if inv.status.value == 'overdue'
+                           else 'border-amber-200 bg-amber-50') }}
+                  px-3 py-2.5 text-xs">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="font-mono font-medium text-gray-700">{{ inv.id }}</span>
+            {% if inv.status.value == "paid" %}
+            <span class="bg-green-200 text-green-800 font-semibold px-1.5 py-0.5 rounded-full">PAID</span>
+            {% elif inv.status.value == "overdue" %}
+            <span class="bg-red-200 text-red-800 font-semibold px-1.5 py-0.5 rounded-full">OVERDUE</span>
+            {% else %}
+            <span class="bg-amber-200 text-amber-800 font-semibold px-1.5 py-0.5 rounded-full">PENDING</span>
+            {% endif %}
+          </div>
+          <p class="text-gray-500 mt-0.5">
+            ₹{{ "%.2f"|format(inv.amount) }} · {{ inv.period_start }} → {{ inv.period_end }} · due {{ inv.due_date }}
+          </p>
+          {% if inv.status.value == "paid" %}
+          <p class="text-green-700 mt-0.5">Confirmed by {{ inv.confirmed_by }} on {{ inv.paid_at[:10] if inv.paid_at else "—" }}</p>
+          {% endif %}
+        </div>
+
+        {% if inv.status.value == "pending" or inv.status.value == "overdue" %}
+        <button
+          hx-post="/admin/billing/{{ slug }}/invoice/{{ inv.id }}/confirm"
+          hx-target="#billing-manage-{{ slug }}"
+          hx-swap="outerHTML"
+          hx-confirm="Mark invoice {{ inv.id }} as paid?"
+          class="flex-shrink-0 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+          Confirm Payment
+        </button>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="border-t border-gray-100 pt-4">
+    <p class="text-xs text-gray-400 italic">No invoices yet. Click "Create Invoice" to generate the first one.</p>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <!-- Free tier: informational -->
+  <div class="border-t border-gray-100 pt-4">
+    <p class="text-xs text-gray-400 italic">No billing active — profile is on the free tier.</p>
+  </div>
+  {% endif %}
+
+</div>

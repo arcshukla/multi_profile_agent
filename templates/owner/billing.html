@@ -1,0 +1,197 @@
+{% extends "owner/layout.html" %}
+{% set active_page = "billing" %}
+{% block content %}
+
+<div class="mb-6">
+  <div class="flex items-center justify-between gap-3 mb-1">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+        </svg>
+      </div>
+      <h1 class="text-xl font-semibold text-gray-900">Billing</h1>
+    </div>
+
+    <!-- Tier badge -->
+    {% if billing_entry.tier.value == "free" %}
+    <span class="inline-flex items-center gap-1.5 text-xs font-semibold bg-gray-100 text-gray-600 px-3 py-1 rounded-full border border-gray-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Free Tier
+    </span>
+    {% elif billing_entry.tier.value == "paid_individual" %}
+    <span class="inline-flex items-center gap-1.5 text-xs font-semibold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full border border-indigo-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>Paid Individual
+    </span>
+    {% else %}
+    <span class="inline-flex items-center gap-1.5 text-xs font-semibold bg-violet-100 text-violet-700 px-3 py-1 rounded-full border border-violet-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-violet-500"></span>Paid Enterprise
+    </span>
+    {% endif %}
+  </div>
+  <p class="text-sm text-gray-500 mt-0.5 ml-12">Manage your subscription and payment history.</p>
+</div>
+
+{% if request.query_params.get('qr_regenerated') %}
+<div class="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">
+  QR code regenerated successfully. Reload the page if it doesn't appear immediately.
+</div>
+{% endif %}
+
+<!-- ── Free tier ──────────────────────────────────────────────────────────── -->
+{% if billing_entry.tier.value == "free" %}
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-5 flex items-start gap-3">
+  <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <div>
+    <p class="text-sm font-semibold text-blue-800">You are on the Free Tier</p>
+    <p class="text-sm text-blue-600 mt-0.5">No payment is required. Contact the platform admin if you'd like to upgrade your plan.</p>
+  </div>
+</div>
+
+<!-- ── Paid tier ──────────────────────────────────────────────────────────── -->
+{% else %}
+
+  {# Pending invoice card #}
+  {% if billing_status.latest_invoice and billing_status.latest_invoice.status.value == "pending" %}
+  {% set inv = billing_status.latest_invoice %}
+  {% set is_overdue = billing_status.billing_due %}
+  <div class="rounded-xl border {{ 'border-red-300 bg-red-50' if is_overdue else 'border-amber-200 bg-amber-50' }} p-5 mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <p class="text-sm font-semibold {{ 'text-red-800' if is_overdue else 'text-amber-800' }}">
+          Invoice {{ inv.id }}
+        </p>
+        {% if is_overdue %}
+        <span class="text-xs font-bold bg-red-200 text-red-800 px-2 py-0.5 rounded-full">OVERDUE</span>
+        {% else %}
+        <span class="text-xs font-medium bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">PENDING</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <!-- Left: invoice details -->
+      <div class="space-y-2">
+        <div>
+          <p class="text-xs text-gray-500">Amount Due</p>
+          <p class="text-3xl font-bold {{ 'text-red-700' if is_overdue else 'text-amber-700' }}">₹{{ "%.2f"|format(inv.amount) }}</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <p class="text-gray-400">Period</p>
+            <p class="text-gray-700 font-medium">{{ inv.period_start }} → {{ inv.period_end }}</p>
+          </div>
+          <div>
+            <p class="text-gray-400">Due Date</p>
+            <p class="{{ 'text-red-600 font-semibold' if is_overdue else 'text-gray-700 font-medium' }}">{{ inv.due_date }}</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">
+          After payment, your platform admin will confirm and clear the due status.
+        </p>
+      </div>
+
+      <!-- Right: QR code -->
+      <div class="flex flex-col items-center gap-3">
+        <!-- QR image — retries once (lazy server-side regen), then shows button -->
+        <div class="bg-white border border-gray-200 rounded-xl p-2">
+          <img src="/owner/billing/qr/{{ inv.id }}"
+               alt="UPI QR Code"
+               id="qr-img-{{ inv.id }}"
+               class="w-40 h-40 object-contain"
+               onerror="
+                 if (!this.dataset.retried) {
+                   this.dataset.retried = '1';
+                   this.src = '/owner/billing/qr/{{ inv.id }}?t=' + Date.now();
+                 } else {
+                   this.style.display = 'none';
+                   document.getElementById('qr-fallback-{{ inv.id }}').classList.remove('hidden');
+                 }
+               ">
+        </div>
+        <!-- Shown only when both load attempts fail -->
+        <div id="qr-fallback-{{ inv.id }}" class="hidden flex flex-col items-center gap-2 bg-white border border-gray-200 rounded-xl p-4">
+          <p class="text-xs text-gray-400">QR could not be loaded</p>
+          <form method="post" action="/owner/billing/qr/regenerate/{{ inv.id }}">
+            <button type="submit"
+                    class="text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors">
+              Regenerate QR
+            </button>
+          </form>
+        </div>
+        <div class="text-center">
+          <p class="text-xs text-gray-400 mb-1">UPI ID</p>
+          <div class="flex items-center gap-2">
+            <code class="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-700" id="upi-id-text">{{ upi_vpa }}</code>
+            <button onclick="navigator.clipboard.writeText('{{ upi_vpa }}').then(()=>this.textContent='✓').catch(()=>{})"
+                    class="text-xs text-indigo-500 hover:text-indigo-700 transition-colors">Copy</button>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 text-center">Scan with PhonePe, GPay, Paytm, or any UPI app.</p>
+        <p class="text-xs text-gray-500 text-center">Reference: <code class="font-mono">{{ inv.id }}</code></p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Payment history -->
+  <div class="bg-white rounded-xl border border-gray-200">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="text-sm font-semibold text-gray-700">Payment History</h2>
+    </div>
+
+    {% if billing_entry.invoices %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="text-left px-5 py-3 font-semibold text-gray-500 uppercase tracking-wide">Invoice</th>
+            <th class="text-left px-5 py-3 font-semibold text-gray-500 uppercase tracking-wide">Period</th>
+            <th class="text-left px-5 py-3 font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
+            <th class="text-left px-5 py-3 font-semibold text-gray-500 uppercase tracking-wide">Due</th>
+            <th class="text-left px-5 py-3 font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+            <th class="text-left px-5 py-3 font-semibold text-gray-500 uppercase tracking-wide">Paid On</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for inv in billing_entry.invoices | reverse %}
+          <tr class="{{ 'bg-green-50' if inv.status.value == 'paid' else ('bg-red-50' if inv.status.value == 'overdue' else 'bg-white') }} hover:bg-gray-50 transition-colors">
+            <td class="px-5 py-3 font-mono text-gray-700">{{ inv.id }}</td>
+            <td class="px-5 py-3 text-gray-600">{{ inv.period_start }} → {{ inv.period_end }}</td>
+            <td class="px-5 py-3 font-semibold text-gray-800">₹{{ "%.2f"|format(inv.amount) }}</td>
+            <td class="px-5 py-3 text-gray-600">{{ inv.due_date }}</td>
+            <td class="px-5 py-3">
+              {% if inv.status.value == "paid" %}
+              <span class="inline-flex items-center gap-1 bg-green-100 text-green-700 font-medium px-2 py-0.5 rounded-full">
+                <span class="w-1 h-1 rounded-full bg-green-500"></span>Paid
+              </span>
+              {% elif inv.status.value == "overdue" %}
+              <span class="inline-flex items-center gap-1 bg-red-100 text-red-700 font-medium px-2 py-0.5 rounded-full">
+                <span class="w-1 h-1 rounded-full bg-red-500"></span>Overdue
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 font-medium px-2 py-0.5 rounded-full">
+                <span class="w-1 h-1 rounded-full bg-amber-500"></span>Pending
+              </span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-3 text-gray-500">
+              {{ (inv.paid_at[:10] if inv.paid_at else "—") }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-5 py-8 text-center">
+      <p class="text-sm text-gray-400 italic">No invoices yet.</p>
+    </div>
+    {% endif %}
+  </div>
+
+{% endif %}
+{% endblock %}

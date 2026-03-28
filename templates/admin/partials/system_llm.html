@@ -1,0 +1,143 @@
+<!-- System: LLM / Prompts partial -->
+<div class="space-y-8">
+
+  <!-- ── Token Usage ─────────────────────────────────────────────────────── -->
+  <div>
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">Token Consumption</h2>
+
+    <!-- Grand-total summary chips -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+      {% set chip_data = [
+        ("Indexing", totals.indexing_total, totals.indexing_calls),
+        ("Intent",   totals.intent_total,   totals.intent_calls),
+        ("Query",    totals.query_total,     totals.query_calls),
+        ("Grand Total", totals.grand_total, totals.indexing_calls + totals.intent_calls + totals.query_calls),
+      ] %}
+      {% for label, toks, calls in chip_data %}
+      <div class="bg-white border border-gray-200 rounded-xl p-4 text-center">
+        <p class="text-xs text-gray-500 mb-1">{{ label }}</p>
+        <p class="text-lg font-bold text-indigo-600">{{ "{:,}".format(toks) }}</p>
+        <p class="text-xs text-gray-400">{{ calls }} call{{ "s" if calls != 1 else "" }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Per-profile table -->
+    {% if usage %}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <table class="w-full text-xs">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Profile</th>
+            <th class="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Indexing</th>
+            <th class="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Intent</th>
+            <th class="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Query</th>
+            <th class="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
+            <th class="px-4 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 font-mono">
+          {% for slug, row in usage.items() %}
+          {% set profile_total = row.indexing_total + row.intent_total + row.query_total %}
+          <tr class="hover:bg-gray-50" id="token-row-{{ slug }}">
+            <td class="px-4 py-2.5 text-gray-700 font-sans font-medium">{{ slug }}</td>
+            <td class="px-4 py-2.5 text-right text-gray-600">
+              {{ "{:,}".format(row.indexing_total) }}
+              <span class="text-gray-400 font-sans">({{ row.indexing_calls }})</span>
+            </td>
+            <td class="px-4 py-2.5 text-right text-gray-600">
+              {{ "{:,}".format(row.intent_total) }}
+              <span class="text-gray-400 font-sans">({{ row.intent_calls }})</span>
+            </td>
+            <td class="px-4 py-2.5 text-right text-gray-600">
+              {{ "{:,}".format(row.query_total) }}
+              <span class="text-gray-400 font-sans">({{ row.query_calls }})</span>
+            </td>
+            <td class="px-4 py-2.5 text-right font-semibold text-gray-800">{{ "{:,}".format(profile_total) }}</td>
+            <td class="px-4 py-2.5 text-right">
+              <button
+                hx-post="/admin/system/llm/tokens/reset/{{ slug }}"
+                hx-target="#token-row-{{ slug }}"
+                hx-swap="outerHTML"
+                hx-confirm="Reset token counters for {{ slug }}?"
+                class="text-xs text-red-500 hover:text-red-700 hover:underline">
+                Reset
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 italic">No token data recorded yet. Token usage accumulates after indexing and chat.</p>
+    {% endif %}
+
+    <p class="text-xs text-gray-400 mt-2">
+      <strong>Indexing</strong> = document split calls &nbsp;|&nbsp;
+      <strong>Intent</strong> = per-query topic classification calls &nbsp;|&nbsp;
+      <strong>Query</strong> = main chat + followup generation calls. Numbers in parentheses = call count.
+    </p>
+  </div>
+
+  <!-- ── LLM Prompts ──────────────────────────────────────────────────────── -->
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h2 class="text-sm font-semibold text-gray-700">RAG Engine Prompts</h2>
+        <p class="text-xs text-gray-400 mt-0.5">
+          Edit the text freely. Do <strong>not</strong> remove
+          <code class="bg-gray-100 px-1 rounded">{placeholder}</code> variables — the engine requires them.
+        </p>
+      </div>
+      <button
+        hx-post="/admin/system/llm/prompt/restore"
+        hx-target="#llm-prompts-container"
+        hx-swap="outerHTML"
+        hx-confirm="Restore all LLM prompts to built-in defaults?"
+        class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 transition-colors">
+        Restore Defaults
+      </button>
+    </div>
+
+    <div id="llm-prompts-container" class="space-y-6">
+      {% for key, prompt in prompts.items() %}
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium text-gray-800">{{ prompt.name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ prompt.description }}</p>
+          </div>
+          <span class="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-1 rounded flex-shrink-0">{{ key }}</span>
+        </div>
+        <form
+          hx-post="/admin/system/llm/prompt/{{ key }}"
+          hx-target="#save-status-{{ key }}"
+          hx-swap="innerHTML"
+          class="p-4 space-y-3">
+          <textarea
+            name="content"
+            rows="14"
+            class="w-full font-mono text-xs border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50 leading-relaxed"
+          >{{ prompt.content }}</textarea>
+          <div class="flex items-center gap-3">
+            <button type="submit"
+              class="px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+              Save
+            </button>
+            <span id="save-status-{{ key }}" class="text-xs text-gray-400"></span>
+          </div>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4">
+      <p class="text-sm text-amber-800">
+        <strong>Note:</strong> Prompt changes take effect for newly indexed documents and new chat sessions.
+        Re-index a profile after changing the <em>Document Split Prompt</em> to rebuild its chunks.
+      </p>
+    </div>
+  </div>
+
+</div>

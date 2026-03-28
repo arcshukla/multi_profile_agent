@@ -1,0 +1,612 @@
+<!-- Tab 2: Manage Profile — accordion layout -->
+<div class="space-y-5">
+
+  <!-- Back + header + status toggle -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button
+        hx-get="/admin/tab/registry"
+        hx-target="#tab-content"
+        hx-swap="innerHTML"
+        hx-push-url="/admin/registry"
+        class="text-gray-400 hover:text-gray-700 transition-colors"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+      </button>
+      <div>
+        <h1 class="text-xl font-semibold text-gray-900">{{ profile.name }}</h1>
+        <p class="text-sm text-gray-500">
+          <span class="font-mono text-xs">{{ profile.slug }}</span>
+          <span class="mx-1.5 text-gray-300">·</span>
+          <span class="{% if profile.status == 'enabled' %}text-green-600{% else %}text-gray-400{% endif %}">{{ profile.status }}</span>
+          {% if profile.status != 'deleted' %}
+          <span class="mx-1.5 text-gray-300">·</span>
+          <a href="/chat/{{ profile.slug }}" target="_blank" class="text-indigo-600 hover:underline text-xs">Open chat ↗</a>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    {% if profile.status != 'deleted' %}
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-gray-500">Status:</span>
+      {% if profile.status == 'enabled' %}
+      <button
+        hx-patch="/api/profiles/{{ profile.slug }}/status?status=disabled"
+        hx-swap="none"
+        hx-on::after-request="handleStatusChange(event, 'disabled')"
+        class="inline-flex items-center gap-1.5 text-xs font-medium bg-green-100 text-green-700 hover:bg-red-50 hover:text-red-600 px-3 py-1.5 rounded-full border border-green-200 hover:border-red-200 transition-colors"
+      ><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Enabled — click to disable</button>
+      {% else %}
+      <button
+        hx-patch="/api/profiles/{{ profile.slug }}/status?status=enabled"
+        hx-swap="none"
+        hx-on::after-request="handleStatusChange(event, 'enabled')"
+        class="inline-flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-green-700 px-3 py-1.5 rounded-full border border-gray-200 hover:border-green-200 transition-colors"
+      ><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Disabled — click to enable</button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% macro accordion(id, label, icon) %}
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <button class="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-gray-900 hover:bg-gray-50 transition-colors" onclick="toggleAccordion('{{ id }}')">
+      <div class="flex items-center gap-2.5">{{ icon | safe }}{{ label }}</div>
+      <svg id="chevron-{{ id }}" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+    <div id="panel-{{ id }}" class="hidden border-t border-gray-100">
+  {% endmacro %}
+  {% macro end_accordion() %}</div></div>{% endmacro %}
+
+  <!-- ── Photo ── -->
+  {{ accordion("photo", "Profile Photo", '<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>') }}
+  <div class="p-5 space-y-4">
+    <!-- Current / preview -->
+    <div id="photo-display" class="flex items-center gap-4">
+      {% if profile.has_photo %}
+      <img id="photo-img" src="/api/profiles/{{ profile.slug }}/photo" class="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
+      {% else %}
+      <div id="photo-img" class="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-2xl border-2 border-dashed border-gray-300">{{ profile.name[0] }}</div>
+      {% endif %}
+      <div id="photo-preview-label" class="text-xs text-gray-400 hidden">Preview (not saved yet)</div>
+    </div>
+    <form id="photo-form-{{ profile.slug }}"
+      hx-post="/api/profiles/{{ profile.slug }}/photo"
+      hx-encoding="multipart/form-data"
+      hx-swap="none"
+      hx-on::after-request="handlePhotoUpload(event, '{{ profile.slug }}')"
+      class="flex items-center gap-3">
+      <input type="file" name="file" accept="image/*"
+        onchange="previewPhoto(this)"
+        class="text-sm text-gray-600 file:mr-3 file:text-xs file:font-medium file:bg-indigo-50 file:text-indigo-700 file:border-0 file:rounded-lg file:px-3 file:py-1.5" />
+      <button type="submit" id="photo-btn-{{ profile.slug }}" disabled
+        class="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+        Upload
+      </button>
+    </form>
+  </div>
+  {{ end_accordion() }}
+
+  <!-- ── Documents ── -->
+  {{ accordion("docs", "Documents", '<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>') }}
+  <div class="p-5 space-y-4">
+    <div id="docs-list-{{ profile.slug }}"
+      hx-get="/admin/manage/{{ profile.slug }}/docs"
+      hx-trigger="load"
+      hx-swap="innerHTML">
+      <p class="text-sm text-gray-400">Loading…</p>
+    </div>
+    <form id="doc-upload-form-{{ profile.slug }}"
+      hx-post="/api/profiles/{{ profile.slug }}/documents"
+      hx-encoding="multipart/form-data"
+      hx-swap="none"
+      hx-on::after-request="handleDocUpload(event, '{{ profile.slug }}')"
+      class="flex items-center gap-3 pt-3 border-t border-gray-100"
+    >
+      <input type="file" name="file" id="doc-file-{{ profile.slug }}"
+        accept=".pdf,.txt,.csv,.doc,.docx,.md"
+        onchange="document.getElementById('doc-btn-{{ profile.slug }}').disabled = !this.files.length; showDocPreview(this, '{{ profile.slug }}')"
+        class="text-sm text-gray-600 file:mr-3 file:text-xs file:font-medium file:bg-indigo-50 file:text-indigo-700 file:border-0 file:rounded-lg file:px-3 file:py-1.5" />
+      <button type="submit" id="doc-btn-{{ profile.slug }}" disabled
+        class="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+        Upload
+      </button>
+    </form>
+    <!-- File preview before upload -->
+    <div id="doc-preview-{{ profile.slug }}" class="hidden text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-2">
+      <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <span id="doc-preview-name-{{ profile.slug }}"></span>
+      <span class="text-gray-400" id="doc-preview-size-{{ profile.slug }}"></span>
+    </div>
+    <p class="text-xs text-gray-400">Allowed: PDF, TXT, CSV, DOC, DOCX, MD</p>
+  </div>
+  {{ end_accordion() }}
+
+  <!-- ── Header HTML ── -->
+  {{ accordion("header", "Header HTML", '<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>') }}
+  <div class="p-5">
+    <form hx-post="/admin/manage/{{ profile.slug }}/header"
+      hx-swap="none"
+      hx-on::after-request="handleSave(event, 'Header')"
+      class="space-y-3">
+      <textarea name="content" rows="10"
+        class="w-full text-sm font-mono border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
+        placeholder="<p>Hello, I'm the avatar for this profile…</p>"
+      >{{ header_html }}</textarea>
+      <button type="submit" class="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition-colors">Save Header</button>
+    </form>
+  </div>
+  {{ end_accordion() }}
+
+  <!-- ── Color Scheme / CSS ── -->
+  {{ accordion("css", "Color Scheme / CSS", '<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>') }}
+  <div class="p-5 space-y-5">
+
+    <!-- Curated pickers -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="css-pickers">
+
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1.5">Primary Color</label>
+        <div class="flex items-center gap-2">
+          <input type="color" id="pick-primary" value="#4f46e5"
+            oninput="updateCssVar('--color-primary', this.value); document.getElementById('pick-primary-dark').value = darken(this.value);"
+            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
+          <input type="text" id="pick-primary-text" value="#4f46e5"
+            oninput="document.getElementById('pick-primary').value=this.value; updateCssVar('--color-primary',this.value)"
+            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1.5">Background</label>
+        <div class="flex items-center gap-2">
+          <input type="color" id="pick-bg" value="#f8fafc"
+            oninput="updateCssVar('--color-bg', this.value)"
+            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
+          <input type="text" value="#f8fafc"
+            oninput="document.getElementById('pick-bg').value=this.value; updateCssVar('--color-bg',this.value)"
+            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1.5">Bot Bubble</label>
+        <div class="flex items-center gap-2">
+          <input type="color" id="pick-bubble-bot" value="#add8e6"
+            oninput="updateCssVar('--color-bubble-bot', this.value)"
+            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
+          <input type="text" value="#add8e6"
+            oninput="document.getElementById('pick-bubble-bot').value=this.value; updateCssVar('--color-bubble-bot',this.value)"
+            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1.5">User Bubble</label>
+        <div class="flex items-center gap-2">
+          <input type="color" id="pick-bubble-user" value="#4f46e5"
+            oninput="updateCssVar('--color-bubble-user', this.value)"
+            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
+          <input type="text" value="#4f46e5"
+            oninput="document.getElementById('pick-bubble-user').value=this.value; updateCssVar('--color-bubble-user',this.value)"
+            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1.5">Body Text</label>
+        <div class="flex items-center gap-2">
+          <input type="color" id="pick-text" value="#0f172a"
+            oninput="updateCssVar('--color-text', this.value)"
+            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
+          <input type="text" value="#0f172a"
+            oninput="document.getElementById('pick-text').value=this.value; updateCssVar('--color-text',this.value)"
+            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1.5">Font</label>
+        <select id="pick-font" onchange="updateFont(this.value)"
+          class="w-full text-xs border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="Inter">Inter (default)</option>
+          <option value="Roboto">Roboto</option>
+          <option value="Georgia">Georgia (serif)</option>
+          <option value="Merriweather">Merriweather</option>
+          <option value="Lato">Lato</option>
+          <option value="Poppins">Poppins</option>
+        </select>
+      </div>
+
+    </div>
+
+    <!-- Live preview strip -->
+    <div id="css-preview-strip" class="rounded-lg border border-gray-200 p-3 text-xs flex items-center gap-3">
+      <div id="prev-bubble-bot" class="px-3 py-1.5 rounded-xl text-gray-800" style="background:#add8e6">Bot reply</div>
+      <div id="prev-bubble-user" class="px-3 py-1.5 rounded-xl text-white" style="background:#4f46e5">User message</div>
+      <div id="prev-text" class="font-medium" style="color:#0f172a">Body text sample</div>
+    </div>
+
+    <div class="flex gap-3 pt-2 border-t border-gray-100">
+      <button onclick="saveCss('{{ profile.slug }}')"
+        class="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition-colors">
+        Save Styles
+      </button>
+      <button onclick="resetCssPickers()"
+        class="text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors">
+        Reset to Defaults
+      </button>
+    </div>
+
+    <!-- Advanced: raw editor (collapsed) -->
+    <details class="mt-2">
+      <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">Advanced: edit raw CSS</summary>
+      <textarea id="raw-css-editor" rows="14"
+        class="mt-2 w-full text-xs font-mono border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
+      >{{ profile_css }}</textarea>
+      <button onclick="saveRawCss('{{ profile.slug }}')"
+        class="mt-2 text-xs font-medium text-white bg-gray-700 hover:bg-gray-800 px-3 py-1.5 rounded-lg transition-colors">
+        Save Raw CSS
+      </button>
+    </details>
+
+  </div>
+  {{ end_accordion() }}
+
+  <!-- ── Prompt Management ── -->
+  {{ accordion("prompts", "Prompt Management", '<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>') }}
+  <div class="p-5 space-y-5">
+    {% if prompts_is_default %}
+    <div class="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+      <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Using default prompts. Edits will create a custom prompts.py for this profile.
+    </div>
+    {% endif %}
+    {% for key, prompt in prompts.items() %}
+    <div class="space-y-2">
+      <label class="block text-sm font-medium text-gray-700">{{ prompt.name }}</label>
+      <form hx-patch="/api/profiles/{{ profile.slug }}/prompts"
+        hx-ext="json-enc"
+        hx-swap="none"
+        hx-on::after-request="handleSave(event, '{{ prompt.name }}')"
+        class="space-y-2">
+        <input type="hidden" name="short_name" value="{{ key }}" />
+        <textarea name="content" rows="{{ [prompt.content.count('\n') + 2, 4] | max }}"
+          class="w-full text-sm font-mono border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y">{{ prompt.content }}</textarea>
+        <button type="submit" class="text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors">Save</button>
+      </form>
+    </div>
+    {% endfor %}
+    <div class="pt-3 border-t border-gray-100">
+      <button hx-post="/api/profiles/{{ profile.slug }}/prompts/restore"
+        hx-confirm="Restore all prompts to defaults? This cannot be undone."
+        hx-swap="none"
+        hx-on::after-request="handleSave(event, 'Prompts (restored)'); location.reload();"
+        class="text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">
+        Restore Defaults
+      </button>
+    </div>
+  </div>
+  {{ end_accordion() }}
+
+  <!-- ── Indexing ── -->
+  {{ accordion("index", "Indexing", '<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 11c0 2.21 3.582 4 8 4s8-1.79 8-4"/></svg>') }}
+  <div class="p-5 space-y-4">
+    <div id="index-status-{{ profile.slug }}"
+      hx-get="/admin/manage/{{ profile.slug }}/index-status"
+      hx-trigger="load"
+      hx-swap="innerHTML">
+      <p class="text-sm text-gray-400">Loading…</p>
+    </div>
+    <div class="flex gap-3">
+      <button
+        hx-post="/api/profiles/{{ profile.slug }}/index"
+        hx-ext="json-enc" hx-vals='{"force": false}'
+        hx-swap="none"
+        hx-on::after-request="showToast('Indexing started!'); setTimeout(()=>htmx.trigger('#index-status-{{ profile.slug }}','load'),2000);"
+        class="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition-colors">
+        Index Documents
+      </button>
+      <button
+        hx-post="/api/profiles/{{ profile.slug }}/index/force"
+        hx-confirm="Force reindex will wipe the existing vector index. Continue?"
+        hx-swap="none"
+        hx-on::after-request="showToast('Force reindex started!'); setTimeout(()=>htmx.trigger('#index-status-{{ profile.slug }}','load'),2000);"
+        class="text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg transition-colors">
+        Force Reindex
+      </button>
+    </div>
+  </div>
+  {{ end_accordion() }}
+
+  <!-- ── Profile Logs ── -->
+  {{ accordion("logs", "Profile Logs", '<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>') }}
+  <div class="p-5">
+    <div hx-get="/admin/manage/{{ profile.slug }}/logs" hx-trigger="load" hx-swap="innerHTML">
+      <p class="text-sm text-gray-400">Loading…</p>
+    </div>
+  </div>
+  {{ end_accordion() }}
+
+  <!-- ── Delete ── -->
+  {{ accordion("delete", "Delete Profile", '<svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>') }}
+  <div class="p-5 space-y-3">
+    <p class="text-sm text-gray-600"><strong>Soft delete</strong> marks as deleted but keeps files. <strong>Hard delete</strong> permanently removes everything.</p>
+    <div class="flex gap-3">
+      <button
+        hx-post="/api/profiles/{{ profile.slug }}/soft-delete"
+        hx-confirm="Soft-delete '{{ profile.name }}'? Files will be kept."
+        hx-swap="none"
+        hx-on::after-request="showToast('Profile soft-deleted'); htmx.ajax('GET','/admin/tab/registry',{target:'#tab-content',swap:'innerHTML'});"
+        class="text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 px-4 py-2 rounded-lg transition-colors">
+        Soft Delete
+      </button>
+      <button
+        hx-delete="/api/profiles/{{ profile.slug }}"
+        hx-confirm="PERMANENTLY delete '{{ profile.name }}' and all files? This cannot be undone."
+        hx-swap="none"
+        hx-on::after-request="showToast('Profile permanently deleted','error'); htmx.ajax('GET','/admin/tab/registry',{target:'#tab-content',swap:'innerHTML'});"
+        class="text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg transition-colors">
+        Hard Delete
+      </button>
+    </div>
+  </div>
+  {{ end_accordion() }}
+
+  <!-- ── Billing ── -->
+  {{ accordion("billing", "Billing", '<svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>') }}
+  <div class="p-5"
+       hx-get="/admin/billing/{{ profile.slug }}"
+       hx-trigger="intersect once"
+       hx-swap="innerHTML">
+    <p class="text-xs text-gray-400 italic">Loading billing info…</p>
+  </div>
+  {{ end_accordion() }}
+
+</div>
+
+<script>
+// ── Accordion ──────────────────────────────────────────────────────────────
+function toggleAccordion(id) {
+  const panel = document.getElementById('panel-' + id);
+  const chevron = document.getElementById('chevron-' + id);
+  const isOpen = !panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', isOpen);
+  chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+toggleAccordion('photo');
+
+// ── Generic save handler — checks HTTP status before toasting ──────────────
+function handleSave(event, label) {
+  const xhr = event.detail.xhr;
+  if (xhr && xhr.status >= 200 && xhr.status < 300) {
+    showToast(label + ' saved!');
+  } else {
+    showToast('Failed to save ' + label + '. Please try again.', 'error');
+  }
+}
+
+// ── Status change ──────────────────────────────────────────────────────────
+function handleStatusChange(event, newStatus) {
+  const xhr = event.detail.xhr;
+  if (xhr && xhr.status >= 200 && xhr.status < 300) {
+    showToast('Profile ' + newStatus + '!');
+    setTimeout(() => location.reload(), 800);
+  } else {
+    showToast('Failed to update status', 'error');
+  }
+}
+
+// ── Photo preview before upload ────────────────────────────────────────────
+function previewPhoto(input) {
+  const btn = input.nextElementSibling;
+  btn.disabled = !input.files.length;
+  if (!input.files.length) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('photo-img');
+    if (img.tagName === 'IMG') {
+      img.src = e.target.result;
+    } else {
+      // Replace placeholder div with img
+      const newImg = document.createElement('img');
+      newImg.id = 'photo-img';
+      newImg.className = 'w-20 h-20 rounded-full object-cover border-2 border-gray-200 border-dashed border-amber-400';
+      newImg.src = e.target.result;
+      img.replaceWith(newImg);
+    }
+    document.getElementById('photo-preview-label').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function handlePhotoUpload(event, slug) {
+  const xhr = event.detail.xhr;
+  if (xhr && xhr.status >= 200 && xhr.status < 300) {
+    showToast('Photo uploaded!');
+    document.getElementById('photo-preview-label').classList.add('hidden');
+    // Refresh from server to confirm
+    const img = document.getElementById('photo-img');
+    if (img && img.tagName === 'IMG') {
+      img.src = '/api/profiles/' + slug + '/photo?t=' + Date.now();
+    }
+  } else {
+    showToast('Photo upload failed', 'error');
+  }
+}
+
+// ── Doc preview before upload ──────────────────────────────────────────────
+function showDocPreview(input, slug) {
+  const preview = document.getElementById('doc-preview-' + slug);
+  const nameEl = document.getElementById('doc-preview-name-' + slug);
+  const sizeEl = document.getElementById('doc-preview-size-' + slug);
+  if (!input.files.length) { preview.classList.add('hidden'); return; }
+  const file = input.files[0];
+  const kb = (file.size / 1024).toFixed(1);
+  nameEl.textContent = file.name;
+  sizeEl.textContent = '(' + kb + ' KB)';
+  preview.classList.remove('hidden');
+}
+
+function handleDocUpload(event, slug) {
+  const xhr = event.detail.xhr;
+  if (xhr && xhr.status >= 200 && xhr.status < 300) {
+    showToast('Document uploaded!');
+    document.getElementById('doc-preview-' + slug).classList.add('hidden');
+    document.getElementById('doc-btn-' + slug).disabled = true;
+    document.getElementById('doc-file-' + slug).value = '';
+    // Reload docs list
+    htmx.ajax('GET', '/admin/manage/' + slug + '/docs', {
+      target: '#docs-list-' + slug, swap: 'innerHTML'
+    });
+    // Refresh index status so document count stays in sync
+    htmx.ajax('GET', '/admin/manage/' + slug + '/index-status', {
+      target: '#index-status-' + slug, swap: 'innerHTML'
+    });
+  } else {
+    let msg = 'Upload failed';
+    try { msg = JSON.parse(xhr.responseText).detail || msg; } catch(e) {}
+    showToast(msg, 'error');
+  }
+}
+
+// ── CSS pickers ────────────────────────────────────────────────────────────
+const CSS_DEFAULTS = {
+  '--color-primary':     '#4f46e5',
+  '--color-bg':          '#f8fafc',
+  '--color-bubble-bot':  '#add8e6',
+  '--color-bubble-user': '#4f46e5',
+  '--color-text':        '#0f172a',
+  'font-family':         'Inter',
+};
+
+// Populate pickers from existing profile CSS if present
+(function initPickers() {
+  const raw = document.getElementById('raw-css-editor')?.value || '';
+  const extract = (varName) => {
+    const m = raw.match(new RegExp(varName.replace('--','--') + '\\s*:\\s*([^;]+)'));
+    return m ? m[1].trim() : null;
+  };
+  [
+    ['--color-primary',    'pick-primary'],
+    ['--color-bg',         'pick-bg'],
+    ['--color-bubble-bot', 'pick-bubble-bot'],
+    ['--color-bubble-user','pick-bubble-user'],
+    ['--color-text',       'pick-text'],
+  ].forEach(([varName, pickerId]) => {
+    const val = extract(varName);
+    if (val && val.startsWith('#')) {
+      const el = document.getElementById(pickerId);
+      if (el) { el.value = val; el.nextElementSibling.value = val; }
+    }
+  });
+})();
+
+function updateCssVar(varName, value) {
+  // Update preview strip
+  const map = {
+    '--color-bubble-bot':  () => { document.getElementById('prev-bubble-bot').style.background = value; },
+    '--color-bubble-user': () => { document.getElementById('prev-bubble-user').style.background = value; },
+    '--color-text':        () => { document.getElementById('prev-text').style.color = value; },
+  };
+  if (map[varName]) map[varName]();
+  // Sync hex text field next to color picker
+  syncPickerText(varName, value);
+}
+
+function syncPickerText(varName, value) {
+  const pairs = {
+    '--color-primary':    'pick-primary',
+    '--color-bg':         'pick-bg',
+    '--color-bubble-bot': 'pick-bubble-bot',
+    '--color-bubble-user':'pick-bubble-user',
+    '--color-text':       'pick-text',
+  };
+  const id = pairs[varName];
+  if (id) {
+    const el = document.getElementById(id);
+    if (el) { el.nextElementSibling.value = value; }
+  }
+}
+
+function updateFont(font) {
+  document.getElementById('prev-text').style.fontFamily = font;
+}
+
+function resetCssPickers() {
+  document.getElementById('pick-primary').value = '#4f46e5';
+  document.getElementById('pick-bg').value = '#f8fafc';
+  document.getElementById('pick-bubble-bot').value = '#add8e6';
+  document.getElementById('pick-bubble-user').value = '#4f46e5';
+  document.getElementById('pick-text').value = '#0f172a';
+  document.getElementById('pick-font').value = 'Inter';
+  document.getElementById('prev-bubble-bot').style.background = '#add8e6';
+  document.getElementById('prev-bubble-user').style.background = '#4f46e5';
+  document.getElementById('prev-text').style.color = '#0f172a';
+}
+
+function buildCssFromPickers() {
+  const p  = document.getElementById('pick-primary').value;
+  const bg = document.getElementById('pick-bg').value;
+  const bb = document.getElementById('pick-bubble-bot').value;
+  const bu = document.getElementById('pick-bubble-user').value;
+  const tx = document.getElementById('pick-text').value;
+  const fn = document.getElementById('pick-font').value;
+  return `:root {
+  --color-primary:       ${p};
+  --color-primary-dark:  ${darken(p)};
+  --color-primary-glow:  ${hexToRgba(p, 0.15)};
+  --color-bg:            ${bg};
+  --color-bg-surface:    white;
+  --color-text:          ${tx};
+  --color-text-dark:     ${darken(tx, 0.05)};
+  --color-text-on-primary: white;
+  --color-border:        #e2e8f0;
+  --color-border-input:  gray;
+  --color-bubble-bot:    ${bb};
+  --color-bubble-user:   ${bu};
+}
+body {
+  font-family: "${fn}", "Segoe UI", Roboto, Arial, sans-serif;
+}`;
+}
+
+async function saveCss(slug) {
+  const content = buildCssFromPickers();
+  document.getElementById('raw-css-editor').value = content;
+  const formData = new FormData();
+  formData.append('content', content);
+  const res = await fetch('/api/profiles/' + slug + '/css', { method: 'POST', body: formData });
+  showToast(res.ok ? 'Styles saved!' : 'Failed to save styles', res.ok ? 'success' : 'error');
+}
+
+async function saveRawCss(slug) {
+  const content = document.getElementById('raw-css-editor').value;
+  const formData = new FormData();
+  formData.append('content', content);
+  const res = await fetch('/api/profiles/' + slug + '/css', { method: 'POST', body: formData });
+  showToast(res.ok ? 'CSS saved!' : 'Failed to save CSS', res.ok ? 'success' : 'error');
+}
+
+// ── Color helpers ──────────────────────────────────────────────────────────
+function darken(hex, amount = 0.1) {
+  let r = parseInt(hex.slice(1,3),16);
+  let g = parseInt(hex.slice(3,5),16);
+  let b = parseInt(hex.slice(5,7),16);
+  r = Math.max(0, Math.round(r * (1 - amount)));
+  g = Math.max(0, Math.round(g * (1 - amount)));
+  b = Math.max(0, Math.round(b * (1 - amount)));
+  return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+</script>

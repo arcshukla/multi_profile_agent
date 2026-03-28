@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}AI Profile Platform{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request.htmx-indicator { display: inline-block; }
+    .fade-in { animation: fadeIn 0.2s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full bg-gray-50 text-gray-900">
+  {% block body %}{% endblock %}
+  <script>
+    // HTMX global error handler
+    document.body.addEventListener('htmx:responseError', function(evt) {
+      console.error('HTMX error:', evt.detail);
+      const msg = evt.detail.xhr?.responseText || 'An error occurred';
+      showToast(msg, 'error');
+    });
+
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      const colors = type === 'error'
+        ? 'bg-red-600 text-white'
+        : 'bg-green-600 text-white';
+      toast.className = `fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium fade-in ${colors}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    }
+
+    // Listen for custom toast events from HTMX responses
+    document.body.addEventListener('showToast', function(evt) {
+      showToast(evt.detail.message, evt.detail.type || 'success');
+    });
+  </script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

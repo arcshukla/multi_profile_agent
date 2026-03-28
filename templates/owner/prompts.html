@@ -1,0 +1,104 @@
+{% extends "owner/layout.html" %}
+{% set active_page = "prompts" %}
+{% block content %}
+
+<div class="mb-6">
+  <div class="flex items-center gap-3 mb-1">
+    <div class="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+      </svg>
+    </div>
+    <h1 class="text-xl font-semibold text-gray-900">Prompts</h1>
+  </div>
+  <p class="text-sm text-gray-500 mt-0.5 ml-12">
+    Edit the text your chatbot uses. The
+    <code class="bg-gray-100 px-1 rounded text-xs">{placeholder}</code> variables
+    shown on each prompt are available for use — include them where relevant.
+  </p>
+</div>
+
+<!-- Legend -->
+<div class="flex items-start gap-6 mb-5 px-1">
+  <div class="flex items-center gap-2 text-xs text-gray-500">
+    <span class="w-3 h-3 rounded bg-white border-2 border-teal-300 flex-shrink-0"></span>
+    <span>Editable — your persona, tone, and allowed topics</span>
+  </div>
+  <div class="flex items-center gap-2 text-xs text-gray-500">
+    <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+    </svg>
+    <span>System-managed — grounding rules, tool protocol, output format. Always appended automatically.</span>
+  </div>
+</div>
+
+<div class="space-y-6">
+  {% for key, prompt in prompts.items() %}
+  {% set has_locked = locked.get(key) %}
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+
+    <!-- Card header -->
+    <div class="bg-gray-50 border-b border-gray-100 px-5 py-3">
+      <p class="text-sm font-medium text-gray-800">{{ prompt.name }}</p>
+      {% set req = required.get(key, []) %}
+      {% if req %}
+      <div class="flex flex-wrap gap-1 mt-1.5 items-center">
+        <span class="text-xs text-gray-400 mr-0.5">Available:</span>
+        {% for ph in req %}
+        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono
+                     bg-indigo-50 text-indigo-600 border border-indigo-100">{{ ph }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Editable textarea -->
+    <form
+      hx-post="/owner/prompts/{{ key }}"
+      hx-target="#prompt-status-{{ key }}"
+      hx-swap="innerHTML"
+      class="p-4 space-y-3">
+      <div class="relative">
+        <div class="absolute top-2 right-2 z-10">
+          <span class="text-xs text-teal-600 bg-teal-50 border border-teal-100 rounded px-1.5 py-0.5 font-medium">Editable</span>
+        </div>
+        <textarea name="content" rows="{% if key == 'chat_placeholder' %}2{% else %}10{% endif %}"
+          class="w-full font-mono text-xs border-2 border-teal-200 rounded-lg p-3 resize-y
+                 focus:outline-none focus:ring-2 focus:ring-teal-300 bg-white leading-relaxed"
+        >{{ prompt.content }}</textarea>
+      </div>
+      <div class="flex items-center gap-3">
+        <button type="submit"
+          class="px-4 py-1.5 text-xs font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
+          Save
+        </button>
+        <span id="prompt-status-{{ key }}" class="text-xs text-gray-400"></span>
+      </div>
+    </form>
+
+    <!-- Locked system section (read-only) -->
+    {% if has_locked %}
+    <div class="border-t border-dashed border-gray-200 mx-0">
+      <div class="px-4 py-2.5 flex items-center gap-2 bg-gray-50">
+        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        <span class="text-xs font-medium text-gray-500">System-managed</span>
+        <span class="text-xs text-gray-400">— appended automatically after your text above. Cannot be edited by owners.</span>
+      </div>
+      <div class="px-4 pb-4">
+        <pre class="text-xs font-mono text-gray-400 bg-gray-50 border border-gray-200 rounded-lg
+                    px-3 py-3 whitespace-pre-wrap leading-relaxed overflow-x-auto select-none
+                    opacity-75 cursor-not-allowed">{{ locked[key] | trim }}</pre>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

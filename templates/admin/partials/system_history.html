@@ -1,0 +1,60 @@
+<!-- System: Index History partial -->
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-gray-700">Indexing History</h2>
+    <form hx-get="/admin/system/history" hx-target="#sys-content" hx-swap="innerHTML" class="flex gap-2">
+      <input name="slug" placeholder="Filter by slug…"
+        class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <button type="submit" class="text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition-colors">Filter</button>
+    </form>
+  </div>
+
+  {% if history %}
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Timestamp</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Profile</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Docs</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Duration</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Error</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for entry in history %}
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-5 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">
+            {{ entry.timestamp[:16] | replace("T", " ") }} UTC
+          </td>
+          <td class="px-5 py-3 font-mono text-xs text-gray-800">{{ entry.profile_slug }}</td>
+          <td class="px-5 py-3">
+            {% if entry.status == "success" %}
+            <span class="inline-flex items-center gap-1 bg-green-50 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">
+              <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Success
+            </span>
+            {% elif entry.status == "failed" %}
+            <span class="inline-flex items-center gap-1 bg-red-50 text-red-600 text-xs font-medium px-2 py-0.5 rounded-full">
+              <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Failed
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-full">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>Running
+            </span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-3 text-gray-500 text-xs">{{ entry.document_count }}</td>
+          <td class="px-5 py-3 text-gray-500 text-xs">{{ entry.duration_seconds }}s</td>
+          <td class="px-5 py-3 text-red-500 text-xs max-w-xs truncate">{{ entry.error | default("—") }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-200 p-10 text-center">
+    <p class="text-gray-400 text-sm">No indexing history yet. Index a profile to see events here.</p>
+  </div>
+  {% endif %}
+</div>

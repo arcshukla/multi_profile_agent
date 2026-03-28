@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat with {{ profile.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
+
+  <!--
+    CSS injection order (intentional):
+      1. Default variables & carousel  — fallbacks for everything
+      2. Profile CSS                   — overrides any variable or rule
+      3. Structural / animation styles — never overridden
+  -->
+
+  <!-- 1. Default variables + carousel -->
+  <style>
+    :root {
+      --color-primary:          #4f46e5;
+      --color-primary-dark:     #3730a3;
+      --color-primary-pale:     #eef2ff;
+      --color-primary-border:   #c7d2fe;
+      --color-primary-text:     #4338ca;
+      --color-primary-glow:     rgba(79,70,229,0.2);
+      --color-bubble-user:      #4f46e5;
+      --color-bubble-user-text: #ffffff;
+      --color-bubble-bot:       #f3f4f6;
+      --color-bubble-bot-text:  #111827;
+      --color-avatar-bg:        #eef2ff;
+      --color-avatar-text:      #4f46e5;
+      --color-carousel-bg:      #e8f5f1;
+      --color-chat-border:      #c7d2fe;
+      --color-followup-bg:      #eef2ff;
+      --color-followup-border:  #c7d2fe;
+      --color-followup-text:    #4338ca;
+      --color-followup-hover:   #e0e7ff;
+      --color-input-focus:      #818cf8;
+      --color-page-bg:          #f8fafc;
+    }
+    body { background: var(--color-page-bg); }
+
+    /* Carousel */
+    .arc-wrap        { position: relative; }
+    .arc-overflow    { overflow: hidden; }
+    .arc-slides      { display: flex; transition: transform 0.35s ease; }
+    .arc-slide       { min-width: 100%; padding: 2px 0 6px; }
+    .arc-title       { font-weight:600; font-size:0.9rem; color:#0f172a; margin-bottom:5px; line-height:1.4; }
+    .arc-creds       { font-size:0.78rem; color:#4a5568; margin-bottom:5px; line-height:1.5; }
+    .arc-sep         { margin:0 5px; opacity:0.45; }
+    .arc-body        { font-size:0.82rem; color:#334155; line-height:1.6; }
+    .arc-body-spaced { letter-spacing:0.02em; }
+    .arc-quote       { font-style:italic; font-size:0.85rem; color:#1e293b; line-height:1.7; margin-bottom:7px; }
+    .arc-attr        { font-size:0.75rem; color:#64748b; }
+    .arc-nav   { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; }
+    .arc-btn   { width:28px; height:28px; border-radius:50%; border:1px solid #c8d5e0; background:white;
+                 display:flex; align-items:center; justify-content:center; cursor:pointer;
+                 color:#475569; transition:background 0.15s, border-color 0.15s; flex-shrink:0; }
+    .arc-btn:hover  { background:#f1f5f9; border-color:#94a3b8; }
+    .arc-dots  { display:flex; gap:6px; align-items:center; }
+    .arc-dot   { width:7px; height:7px; border-radius:50%; background:#b8ccd8;
+                 transition:background 0.2s, transform 0.2s; cursor:pointer; }
+    .arc-dot.active { background: var(--color-primary); transform:scale(1.25); }
+  </style>
+
+  <!-- 2. Profile CSS (overrides variables + any rule above) -->
+  {% if profile_css %}
+  <style>{{ profile_css | safe }}</style>
+  {% endif %}
+
+  <!-- 3. Structural styles — not intended to be overridden by profile -->
+  <style>
+    /* Footer isolation — prevent profile CSS bleeding into footer links */
+    footer a { background: transparent; }
+
+    /* Themed elements */
+    .avatar-icon      { background: var(--color-avatar-bg); color: var(--color-avatar-text); }
+    .photo-ring       { outline: 2px solid var(--color-primary-pale); outline-offset: 1px; }
+    .chat-panel-border{ border: 2px solid var(--color-chat-border); }
+    .chat-bubble-user {
+      background: var(--color-bubble-user);
+      color: var(--color-bubble-user-text);
+      border-radius: 18px 18px 4px 18px;
+    }
+    .chat-bubble-assistant {
+      background: var(--color-bubble-bot);
+      color: var(--color-bubble-bot-text);
+      border-radius: 18px 18px 18px 4px;
+    }
+    .followup-btn {
+      color: var(--color-followup-text);
+      background: var(--color-followup-bg);
+      border: 1px solid var(--color-followup-border);
+      transition: all 0.15s ease;
+    }
+    .followup-btn:hover {
+      background: var(--color-followup-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px var(--color-primary-glow);
+    }
+    .btn-send          { background: var(--color-primary); transition: background 0.15s; }
+    .btn-send:hover    { background: var(--color-primary-dark); }
+    .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+    .input-chat {
+      border: 1.5px solid #d1d5db;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .input-chat:focus {
+      outline: none;
+      border-color: var(--color-input-focus);
+      box-shadow: 0 0 0 3px var(--color-primary-pale);
+    }
+
+    /* Message text formatting */
+    .msg-para  { margin-top: 10px; }
+    .msg-para:first-child { margin-top: 0; }
+    .msg-li {
+      position: relative;
+      padding-left: 1.25em;
+      margin-top: 6px;
+      line-height: 1.6;
+    }
+    .msg-li::before {
+      content: '○';
+      position: absolute;
+      left: 0;
+      font-size: 0.7em;
+      top: 0.25em;
+      opacity: 0.65;
+    }
+
+    /* Animations */
+    .typing-dot { animation: typingBounce 1.2s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30%            { transform: translateY(-6px); opacity: 1; }
+    }
+    .message-enter { animation: messageIn 0.25s ease-out; }
+    @keyframes messageIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    #chat-scroll { scroll-behavior: smooth; }
+  </style>
+</head>
+
+<body class="min-h-screen">
+
+  <!--
+    Single centered column. All sections use px-6 → left/right edges always align.
+    max-w-4xl = 896px ≈ 60% of a 1440px screen.
+  -->
+  <div class="max-w-4xl mx-auto bg-white shadow-sm flex flex-col">
+
+    <!-- ── Header ──────────────────────────────────────── -->
+    <div class="border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+      {% if profile.has_photo %}
+      <img src="/api/profiles/{{ profile.slug }}/photo"
+        class="w-12 h-12 rounded-full object-cover photo-ring shrink-0" />
+      {% else %}
+      <div class="avatar-icon w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0">
+        {{ profile.name[0] }}
+      </div>
+      {% endif %}
+      <div>
+        <p class="font-bold text-base leading-snug" style="color: var(--color-text);">Hi — I'm {{ profile.name }}'s AI avatar.</p>
+        <p class="text-sm mt-0.5" style="color: var(--color-text); opacity: 0.6;">Ask me anything about {{ profile.name }}'s professional journey.</p>
+      </div>
+    </div>
+
+    <!-- ── Content column — px-6 gives consistent left/right alignment ── -->
+    <div class="flex-1 flex flex-col px-6 pt-5 pb-6 gap-4">
+
+      <!-- Carousel card — same width as chat box below -->
+      {% if header_html %}
+      <div class="rounded-xl overflow-hidden px-5 py-4" style="background: var(--color-carousel-bg);">
+        {{ header_html | safe }}
+      </div>
+      {% endif %}
+
+      <!-- Bordered chat box -->
+      <div class="chat-panel-border rounded-xl overflow-hidden bg-white flex flex-col"
+           style="height: 46vh; min-height: 300px;">
+
+        <!-- Chatbot label -->
+        <div class="border-b border-gray-100 px-4 py-2.5 flex items-center gap-2 shrink-0">
+          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z"/>
+          </svg>
+          <span class="text-xs text-gray-500 font-medium">Chatbot</span>
+        </div>
+
+        <!-- Messages — scrollbar is inside the box, not at viewport edge -->
+        <div class="flex-1 overflow-y-auto px-5 py-5" id="chat-scroll">
+          <div class="space-y-5" id="chat-messages">
+
+            <div class="flex gap-3 message-enter">
+              <div class="avatar-icon w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-1">
+                {{ profile.name[0] }}
+              </div>
+              <div class="chat-bubble-assistant px-4 py-3 text-sm leading-relaxed" style="max-width: 82%;">
+                {{ welcome_message | md_bold | replace('\n\n', '</p><p class="msg-para">') | replace('\n', '<br>') | safe }}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Followup suggestions -->
+      <div id="followup-bar">
+        <div class="flex flex-wrap gap-2" id="followup-buttons">
+          {% for q in followups %}
+          <button onclick="sendFollowup(this)" data-question="{{ q }}"
+            class="followup-btn text-xs px-3 py-1.5 rounded-full font-medium">{{ q }}</button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Question input -->
+      <div class="bg-white border border-gray-200 rounded-xl px-5 py-4 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold text-gray-600">Question</span>
+          <span class="text-xs text-gray-400" id="char-count">0 / 150</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <input
+            type="text"
+            id="chat-input"
+            placeholder="{{ placeholder }}"
+            maxlength="150"
+            onkeydown="handleKeydown(event)"
+            oninput="updateCharCount(this)"
+            class="input-chat flex-1 text-sm rounded-full px-4 py-2.5 bg-white"
+          />
+          <button id="send-btn" onclick="sendMessage()"
+            class="btn-send w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    {% include "partials/footer.html" %}
+
+  </div><!-- /page column -->
+</body>
+
+<script>
+const SLUG = "{{ profile.slug }}";
+let history = [];
+let sessionId = "";
+
+function scrollToBottom() {
+  const el = document.getElementById("chat-scroll");
+  el.scrollTop = el.scrollHeight;
+}
+
+function updateCharCount(el) {
+  document.getElementById("char-count").textContent = el.value.length + " / 150";
+}
+
+/**
+ * Convert plain-text LLM output to readable HTML.
+ * - **bold** → <strong>
+ * - Lines starting with - / • / ○ → bullet items with ○ prefix
+ * - Blank lines → paragraph gap
+ */
+function formatMessage(text) {
+  const lines  = text.split('\n');
+  let html     = '';
+  let inPara   = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw  = lines[i];
+    const line = raw.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    if (line.trim() === '') {
+      if (inPara) { html += '</p>'; inPara = false; }
+      continue;
+    }
+
+    // Bullet line: starts with - or • or ○ or ◦
+    if (/^[-•○◦]\s+/.test(line.trim())) {
+      if (inPara) { html += '</p>'; inPara = false; }
+      html += '<div class="msg-li">' + line.trim().replace(/^[-•○◦]\s+/, '') + '</div>';
+      continue;
+    }
+
+    // Numbered list: "1. " or "1) "
+    if (/^\d+[.)]\s+/.test(line.trim())) {
+      if (inPara) { html += '</p>'; inPara = false; }
+      html += '<div class="msg-li">' + line.trim().replace(/^\d+[.)]\s+/, '') + '</div>';
+      continue;
+    }
+
+    // Regular text
+    if (!inPara) { html += '<p class="msg-para">'; inPara = true; }
+    else          { html += '<br>'; }
+    html += line;
+  }
+  if (inPara) html += '</p>';
+  return html;
+}
+
+function addMessage(role, text) {
+  const container = document.getElementById("chat-messages");
+  const div = document.createElement("div");
+  div.className = "flex gap-3 message-enter " + (role === "user" ? "flex-row-reverse" : "");
+
+  const avatar = document.createElement("div");
+  if (role === "user") {
+    avatar.className = "w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs shrink-0 mt-1";
+    avatar.textContent = "You";
+  } else {
+    avatar.className = "avatar-icon w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-1";
+    avatar.textContent = "{{ profile.name[0] }}";
+  }
+
+  const bubble = document.createElement("div");
+  bubble.className = (role === "user" ? "chat-bubble-user" : "chat-bubble-assistant") + " px-4 py-3 text-sm leading-relaxed";
+  bubble.style.maxWidth = "82%";
+  bubble.innerHTML = role === "user"
+    ? text.replace(/\n/g, "<br>")
+    : formatMessage(text);
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  container.appendChild(div);
+  scrollToBottom();
+  return div;
+}
+
+function showTyping() {
+  const container = document.getElementById("chat-messages");
+  const div = document.createElement("div");
+  div.id = "typing-indicator";
+  div.className = "flex gap-3 message-enter";
+  div.innerHTML = `
+    <div class="avatar-icon w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-1">{{ profile.name[0] }}</div>
+    <div class="chat-bubble-assistant px-4 py-3">
+      <div class="flex gap-1">
+        <span class="typing-dot w-2 h-2 rounded-full bg-gray-400"></span>
+        <span class="typing-dot w-2 h-2 rounded-full bg-gray-400"></span>
+        <span class="typing-dot w-2 h-2 rounded-full bg-gray-400"></span>
+      </div>
+    </div>`;
+  container.appendChild(div);
+  scrollToBottom();
+}
+
+function hideTyping() {
+  document.getElementById("typing-indicator")?.remove();
+}
+
+function updateFollowups(followups) {
+  const bar = document.getElementById("followup-buttons");
+  bar.innerHTML = "";
+  followups.forEach(q => {
+    if (!q) return;
+    const btn = document.createElement("button");
+    btn.className = "followup-btn text-xs px-3 py-1.5 rounded-full font-medium";
+    btn.textContent = q;
+    btn.setAttribute("data-question", q);
+    btn.setAttribute("onclick", "sendFollowup(this)");
+    bar.appendChild(btn);
+  });
+}
+
+async function sendMessage(messageOverride) {
+  const input   = document.getElementById("chat-input");
+  const message = (messageOverride || input.value).trim();
+  if (!message) return;
+
+  input.value = "";
+  updateCharCount(input);
+  input.disabled = true;
+  document.getElementById("send-btn").disabled = true;
+
+  addMessage("user", message);
+  history.push({ role: "user", content: message });
+  showTyping();
+
+  try {
+    const res  = await fetch(`/api/profiles/${SLUG}/chat`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ message, history: history.slice(-8), session_id: sessionId }),
+    });
+    const data = await res.json();
+    hideTyping();
+
+    if (data.answer) {
+      addMessage("assistant", data.answer);
+      history.push({ role: "assistant", content: data.answer });
+      sessionId = data.session_id || sessionId;
+      if (data.followups?.length) updateFollowups(data.followups);
+    } else {
+      addMessage("assistant", "Sorry, something went wrong. Please try again.");
+    }
+  } catch (err) {
+    hideTyping();
+    addMessage("assistant", "Connection error. Please check your network and try again.");
+    console.error(err);
+  }
+
+  input.disabled = false;
+  document.getElementById("send-btn").disabled = false;
+  input.focus();
+}
+
+function sendFollowup(btn) { sendMessage(btn.getAttribute("data-question")); }
+
+function handleKeydown(e) {
+  if (e.key === "Enter") { e.preventDefault(); sendMessage(); }
+}
+
+scrollToBottom();
+
+// ── Carousel ──────────────────────────────────────────────
+(function () {
+  const slides = document.getElementById('arc-slides');
+  if (!slides) return;
+  const dotsEl = document.getElementById('arc-dots');
+  const total  = slides.children.length;
+  let current  = 0, timer;
+
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('span');
+    d.className = 'arc-dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => { goTo(i); resetTimer(); });
+    dotsEl.appendChild(d);
+  }
+
+  function goTo(n) {
+    current = (n + total) % total;
+    slides.style.transform = `translateX(-${current * 100}%)`;
+    dotsEl.querySelectorAll('.arc-dot').forEach((d, i) =>
+      d.classList.toggle('active', i === current));
+  }
+  function resetTimer() {
+    clearInterval(timer);
+    timer = setInterval(() => goTo(current + 1), 5000);
+  }
+
+  document.getElementById('arc-prev')?.addEventListener('click', () => { goTo(current - 1); resetTimer(); });
+  document.getElementById('arc-next')?.addEventListener('click', () => { goTo(current + 1); resetTimer(); });
+  resetTimer();
+})();
+</script>
+
+</html>

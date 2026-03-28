@@ -1,0 +1,63 @@
+<!-- Partial: document list for manage tab -->
+{% if documents %}
+<ul class="space-y-2">
+  {% for doc in documents %}
+  {% set ext = doc.filename.rsplit('.', 1)[-1].lower() %}
+  <li class="flex items-center gap-3 py-2.5 px-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+
+    <!-- Icon -->
+    {% if ext == 'pdf' %}
+    <svg class="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+    {% elif ext == 'csv' %}
+    <svg class="w-4 h-4 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3v18"/></svg>
+    {% elif ext in ['doc', 'docx'] %}
+    <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    {% else %}
+    <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    {% endif %}
+
+    <!-- Filename + meta — grows but truncates -->
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-medium text-gray-900 truncate" title="{{ doc.filename }}">{{ doc.filename }}</p>
+      <p class="text-xs text-gray-400">{{ (doc.size_bytes / 1024) | round(1) }} KB · {{ doc.uploaded_at[:16] | replace("T", " ") if doc.uploaded_at else "—" }} UTC</p>
+    </div>
+
+    <!-- Actions — always visible, never shrink -->
+    <div class="flex items-center gap-2 shrink-0">
+      <a href="/api/profiles/{{ slug }}/documents/{{ doc.filename }}/view"
+        target="_blank"
+        class="text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap">
+        View ↗
+      </a>
+      <button
+        hx-delete="/api/profiles/{{ slug }}/documents/{{ doc.filename }}"
+        hx-confirm="Delete '{{ doc.filename }}'?"
+        hx-swap="none"
+        hx-on::after-request="handleDocDelete(event, '{{ slug }}')"
+        class="text-xs font-medium text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap">
+        Delete
+      </button>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-sm text-gray-400 py-2">No documents uploaded yet.</p>
+{% endif %}
+
+<script>
+function handleDocDelete(event, slug) {
+  const xhr = event.detail.xhr;
+  if (xhr && xhr.status >= 200 && xhr.status < 300) {
+    showToast('Document deleted');
+    htmx.ajax('GET', '/admin/manage/' + slug + '/docs', {
+      target: '#docs-list-' + slug, swap: 'innerHTML'
+    });
+    htmx.ajax('GET', '/admin/manage/' + slug + '/index-status', {
+      target: '#index-status-' + slug, swap: 'innerHTML'
+    });
+  } else {
+    showToast('Delete failed', 'error');
+  }
+}
+</script>

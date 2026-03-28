@@ -1,0 +1,386 @@
+"""
+owner.py
+--------
+Owner portal routes.
+
+All routes require the caller to be authenticated as role=owner or admin.
+The profile slug is always taken from the session (never a URL param) so an
+owner can only ever touch their own profile.
+
+An admin visiting /owner/* is served the same view — slug comes from their
+session["slug"] if set, otherwise they are redirected to /admin.
+"""
+
+from pathlib import Path
+from fastapi import APIRouter, Request, Form, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.templating import Jinja2Templates
+
+from app.core.config import TEMPLATES_DIR, settings
+from app.services.billing_service import billing_service
+from app.core.logging_config import get_logger
+from app.auth.dependencies import get_current_user
+from app.services.profile_service  import profile_service
+from app.services.prompt_service   import prompt_service
+from app.services.index_service    import index_service
+from app.services.token_service    import token_service
+from app.core.constants            import (
+    ALLOWED_DOC_EXTENSIONS,
+    MAX_FILE_SIZE_PDF, MAX_FILE_SIZE_OTHER, MAX_DOCS_PER_PROFILE,
+)
+from app.storage.file_storage      import ProfileFileStorage
+from app.rag.default_prompts       import REQUIRED_PLACEHOLDERS, LOCKED_PROMPT_SUFFIXES
+
+logger    = get_logger(__name__)
+router    = APIRouter(prefix="/owner", include_in_schema=False)
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.globals['support_email'] = settings.SUPPORT_EMAIL
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _r(request: Request, template: str, ctx: dict = {}):
+    import inspect
+    sig = inspect.signature(templates.TemplateResponse)
+    first = list(sig.parameters.keys())[0]
+    if first == "request":
+        return templates.TemplateResponse(request, template, ctx)
+    return templates.TemplateResponse(template, {"request": request, **ctx})
+
+
+def _get_owner_slug(request: Request) -> str | None:
+    """
+    Return the profile slug for the current user.
+    Returns None if not authenticated or no slug assigned (e.g. admin with no slug).
+    """
+    user = get_current_user(request)
+    if not user:
+        return None
+    return user.get("slug")
+
+
+def _auth_redirect(request: Request):
+    """Return a redirect if the user is not authorised for the owner portal."""
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    if user.get("role") == "admin" and not user.get("slug"):
+        # Admin with no assigned profile → send back to admin UI
+        return RedirectResponse(url="/admin", status_code=302)
+    return None
+
+
+# ── Dashboard ──────────────────────────────────────────────────────────────────
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug    = _get_owner_slug(request)
+    profile = profile_service.get_profile(slug)
+    status  = index_service.get_status(slug)
+    usage   = token_service.get_all().get(slug, {})
+
+    return _r(request, "owner/dashboard.html", {
+        "user":           get_current_user(request),
+        "profile":        profile,
+        "status":         status,
+        "usage":          usage,
+        "billing_entry":  billing_service.get_entry(slug),
+        "billing_status": billing_service.get_status(slug),
+    })
+
+
+# ── Docs ───────────────────────────────────────────────────────────────────────
+
+@router.get("/docs", response_class=HTMLResponse)
+def docs_page(request: Request):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug = _get_owner_slug(request)
+    fs   = ProfileFileStorage(slug)
+    docs = fs.list_documents()
+
+    return _r(request, "owner/docs.html", {
+        "user":    get_current_user(request),
+        "slug":    slug,
+        "documents": [
+            {"name": d.name, "size_kb": round(d.stat().st_size / 1024, 1)}
+            for d in docs
+        ],
+    })
+
+
+@router.post("/docs/upload", response_class=HTMLResponse)
+async def docs_upload(request: Request, file: UploadFile = File(...)):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug = _get_owner_slug(request)
+    fs   = ProfileFileStorage(slug)
+
+    # ── Validate file count ───────────────────────────────────────────────────
+    existing = fs.list_documents()
+    if len(existing) >= MAX_DOCS_PER_PROFILE:
+        return RedirectResponse(
+            url=f"/owner/docs?upload_error=max_files", status_code=303
+        )
+
+    # ── Validate file size ────────────────────────────────────────────────────
+    data = await file.read()
+    ext  = Path(file.filename).suffix.lower()
+    max_size  = MAX_FILE_SIZE_PDF if ext == ".pdf" else MAX_FILE_SIZE_OTHER
+    limit_mb  = max_size // (1024 * 1024)
+    if len(data) > max_size:
+        return RedirectResponse(
+            url=f"/owner/docs?upload_error=too_large&ext={ext.lstrip('.')}&limit={limit_mb}",
+            status_code=303,
+        )
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+    try:
+        fs.save_document(file.filename, data)
+        logger.info("Owner upload: slug=%s file=%s size=%d", slug, file.filename, len(data))
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/owner/docs?upload_error=invalid&msg={e}", status_code=303
+        )
+
+    return RedirectResponse(url="/owner/docs?reindex=1", status_code=303)
+
+
+@router.post("/docs/delete/{filename}", response_class=HTMLResponse)
+async def docs_delete(request: Request, filename: str):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug = _get_owner_slug(request)
+    ProfileFileStorage(slug).delete_document(filename)
+    return RedirectResponse(url="/owner/docs?reindex=1", status_code=303)
+
+
+@router.get("/docs/view/{filename}")
+async def docs_view(request: Request, filename: str):
+    """Serve an uploaded document for in-browser preview (PDF / TXT)."""
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug = _get_owner_slug(request)
+    fs   = ProfileFileStorage(slug)
+    # Sanitise: strip any path separators — only the bare filename is allowed
+    safe_name = Path(filename).name
+    if not safe_name or safe_name != filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    path = fs.docs_dir / safe_name
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    # Only allow extensions the platform already accepts
+    if path.suffix.lower() not in ALLOWED_DOC_EXTENSIONS:
+        raise HTTPException(status_code=403, detail="File type not viewable")
+    # CSV and plain-text formats are served as text/plain so the browser renders them inline
+    media_map = {
+        ".pdf": "application/pdf",
+        ".txt": "text/plain",
+        ".md":  "text/plain",
+        ".csv": "text/plain",
+    }
+    ext = path.suffix.lower()
+    if ext not in media_map:
+        raise HTTPException(status_code=403, detail="File type not viewable")
+    media_type = media_map[ext]
+    # No Content-Disposition header → browser uses the media type to decide how to handle the file.
+    # application/pdf and text/plain are displayed inline by all modern browsers.
+    return FileResponse(str(path), media_type=media_type)
+
+
+# ── Appearance (header + CSS) ─────────────────────────────────────────────────
+
+@router.get("/appearance", response_class=HTMLResponse)
+def appearance_page(request: Request):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug = _get_owner_slug(request)
+    fs   = ProfileFileStorage(slug)
+    return _r(request, "owner/appearance.html", {
+        "user":        get_current_user(request),
+        "slug":        slug,
+        "has_photo":   fs.has_photo(),
+        "header_html": fs.read_header(),
+        "profile_css": fs.read_css(),
+    })
+
+
+@router.post("/appearance/header")
+async def save_header(request: Request, content: str = Form(...)):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+    ProfileFileStorage(_get_owner_slug(request)).write_header(content)
+    return HTMLResponse('<p class="text-green-600 text-sm font-medium">Header saved.</p>')
+
+
+@router.post("/appearance/css")
+async def save_css(request: Request, content: str = Form(...)):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+    ProfileFileStorage(_get_owner_slug(request)).write_css(content)
+    return HTMLResponse('<p class="text-green-600 text-sm font-medium">CSS saved.</p>')
+
+
+# ── Prompts ────────────────────────────────────────────────────────────────────
+
+@router.get("/prompts", response_class=HTMLResponse)
+def prompts_page(request: Request):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug = _get_owner_slug(request)
+    prompts, _ = prompt_service.get_prompts(slug)
+    return _r(request, "owner/prompts.html", {
+        "user":    get_current_user(request),
+        "prompts": prompts,
+        "required": REQUIRED_PLACEHOLDERS,
+        "locked":   LOCKED_PROMPT_SUFFIXES,
+    })
+
+
+@router.post("/prompts/{key}")
+async def save_prompt(request: Request, key: str, content: str = Form(...)):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    required = REQUIRED_PLACEHOLDERS.get(key, [])
+    missing  = [p for p in required if p not in content]
+    if missing:
+        return HTMLResponse(
+            f'<p class="text-red-600 text-sm">Missing required placeholder(s): '
+            f'{", ".join(f"<code>{m}</code>" for m in missing)}</p>',
+            status_code=400,
+        )
+
+    slug = _get_owner_slug(request)
+    ok   = prompt_service.update_prompt(slug, key, content)
+    if not ok:
+        return HTMLResponse('<p class="text-red-600 text-sm">Unknown prompt key.</p>', status_code=400)
+    return HTMLResponse('<p class="text-green-600 text-sm font-medium">Saved.</p>')
+
+
+# ── Photo ──────────────────────────────────────────────────────────────────────
+
+@router.post("/photo")
+async def upload_photo(request: Request, file: UploadFile = File(...)):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+    slug = _get_owner_slug(request)
+    data = await file.read()
+    ProfileFileStorage(slug).save_photo(data)
+    return HTMLResponse('<p class="text-green-600 text-sm font-medium">Photo updated successfully.</p>')
+
+
+# ── Status (enable / disable only — no delete for owners) ─────────────────────
+
+@router.post("/status")
+async def toggle_status(request: Request, status: str):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+    if status not in ("enabled", "disabled"):
+        return HTMLResponse('<p class="text-red-600 text-sm">Invalid status.</p>', status_code=400)
+    slug = _get_owner_slug(request)
+    profile_service.update_status(slug, status)
+    if status == "enabled":
+        btn = (
+            '<button form="status-form" name="status" value="disabled" '
+            'class="inline-flex items-center gap-1.5 text-xs font-medium bg-green-100 text-green-700 '
+            'hover:bg-red-50 hover:text-red-600 px-3 py-1.5 rounded-full border border-green-200 '
+            'hover:border-red-200 transition-colors">'
+            '<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Live — click to disable</button>'
+        )
+    else:
+        btn = (
+            '<button form="status-form" name="status" value="enabled" '
+            'class="inline-flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-600 '
+            'hover:bg-green-50 hover:text-green-700 px-3 py-1.5 rounded-full border border-gray-200 '
+            'hover:border-green-200 transition-colors">'
+            '<span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Disabled — click to enable</button>'
+        )
+    return HTMLResponse(f'<div id="status-btn">{btn}</div>')
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+@router.get("/analytics", response_class=HTMLResponse)
+def analytics_page(request: Request):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug   = _get_owner_slug(request)
+    events = ProfileFileStorage(slug).read_chat_events(limit=200)
+    return _r(request, "owner/analytics.html", {
+        "user":   get_current_user(request),
+        "events": events,
+    })
+
+
+# ── AI & Indexing (was: Tokens) ────────────────────────────────────────────────
+
+@router.get("/ai", response_class=HTMLResponse)
+def ai_page(request: Request):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    slug   = _get_owner_slug(request)
+    usage  = token_service.get_all().get(slug, {})
+    status = index_service.get_status(slug)
+    return _r(request, "owner/ai.html", {
+        "user":    get_current_user(request),
+        "usage":   usage,
+        "slug":    slug,
+        "status":  status,
+        "history": index_service.get_history(slug, limit=20),
+    })
+
+
+@router.get("/tokens", response_class=HTMLResponse)
+def tokens_redirect(request: Request):
+    """Backwards-compat redirect for old bookmarks."""
+    return RedirectResponse(url="/owner/ai", status_code=301)
+
+
+@router.post("/index")
+async def owner_index(request: Request, background_tasks: BackgroundTasks):
+    """Start indexing in background."""
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+    slug = _get_owner_slug(request)
+    if not index_service.is_indexing(slug):
+        background_tasks.add_task(index_service.index_profile, slug, False)
+    return RedirectResponse(url="/owner/ai?indexing=1", status_code=303)
+
+
+@router.post("/index/force")
+async def owner_force_index(request: Request, background_tasks: BackgroundTasks):
+    """Force full re-index (wipes existing index)."""
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+    slug = _get_owner_slug(request)
+    if not index_service.is_indexing(slug):
+        background_tasks.add_task(index_service.force_reindex, slug)
+    return RedirectResponse(url="/owner/ai?indexing=1", status_code=303)
