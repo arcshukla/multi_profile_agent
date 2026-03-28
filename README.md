@@ -15,7 +15,7 @@
 
 ---
 
-[Live Demo](#) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Configuration](#-configuration-reference)
+[Live Demo](https://arcshukla-ai-profile-platform.hf.space/) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Configuration](#-configuration-reference)
 
 </div>
 
@@ -24,7 +24,7 @@
 ## Table of Contents
 
 - [The Business Problem](#-the-business-problem)
-- [What is MultiProfile AI?](#-what-is-multiprofile-ai)
+- [What is AI Profile Platform?](#-what-is-ai-profile-platform)
 - [Feature Highlights](#-feature-highlights)
 - [Architecture Overview](#-architecture-overview)
 - [How It Works — User Journeys](#-how-it-works--user-journeys)
@@ -50,7 +50,7 @@ When someone wants to know about your career — your leadership philosophy, the
 
 **Recruiters, collaborators, clients, and fans all face the same friction:**
 
-| The Old Way | The MultiProfile AI Way |
+| The Old Way | The AI Profile Platform Way |
 |-------------|----------------------|
 | Scroll through a LinkedIn profile | Chat naturally in plain English |
 | Download a PDF resume and search manually | Ask "What's her biggest engineering achievement?" and get a direct answer |
@@ -58,13 +58,13 @@ When someone wants to know about your career — your leadership philosophy, the
 | Read generic summaries that lose nuance | Answers grounded in the professional's own words and documents |
 | One static version for all audiences | AI adapts tone and depth to every visitor's question |
 
-**MultiProfile AI solves this** by giving every professional a **conversational AI twin** — a chat interface backed by their resume, recommendations, project history, and achievements — that anyone can talk to, anytime.
+**AI Profile Platform solves this** by giving every professional a **conversational AI twin** — a chat interface backed by their resume, recommendations, project history, and achievements — that anyone can talk to, anytime.
 
 ---
 
-## 🚀 What is MultiProfile AI?
+## 🚀 What is AI Profile Platform?
 
-MultiProfile AI is a **multi-tenant SaaS platform** that lets professionals create, manage, and publish their own **AI-powered career chat profile**.
+AI Profile Platform is a **multi-tenant SaaS platform** that lets professionals create, manage, and publish their own **AI-powered career chat profile**.
 
 Each profile is:
 
@@ -299,7 +299,7 @@ flowchart LR
 
 ### Philosophy
 
-MultiProfile AI uses a **two-tier prompt architecture** that keeps the platform grounded and safe while giving owners meaningful customization:
+It uses a **two-tier prompt architecture** that keeps the platform grounded and safe while giving owners meaningful customization:
 
 ```mermaid
 graph TB
@@ -366,7 +366,7 @@ record_unknown_question(
 
 ## 🔍 RAG Pipeline Deep Dive
 
-MultiProfile AI uses **Semantic RAG with LLM-powered topic indexing** — a step beyond naive chunking.
+It uses **Semantic RAG with LLM-powered topic indexing** — a step beyond naive chunking.
 
 ### Indexing Pipeline
 
@@ -695,11 +695,11 @@ sequenceDiagram
 
 ## ☁️ Deployment — HuggingFace Spaces
 
-MultiProfile AI is designed to run **for free on HuggingFace Spaces** with persistent storage via HF Datasets.
+It is designed to run **for free on HuggingFace Spaces** with persistent storage via HF Datasets.
 
 ### The Persistence Challenge
 
-HuggingFace Spaces use ephemeral containers — every restart wipes the filesystem. MultiProfile AI solves this with **automatic sync to a private HF Dataset repository**.
+HuggingFace Spaces use ephemeral containers — every restart wipes the filesystem. AI Profile Platform solves this with **automatic sync to a private HF Dataset repository**.
 
 ```mermaid
 flowchart LR
@@ -780,8 +780,8 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/multiprofile.git
-cd multiprofile
+git clone https://github.com/your-org/ai_profile_platform.git
+cd ai_profile_platform
 
 # 2. Create virtual environment
 python -m venv venv
