@@ -267,6 +267,74 @@ def cmd_logs_clear(api, args):
 
 
 # ---------------------------------------------------------------------------
+# push — seed HF dataset from local data (first-time setup)
+# ---------------------------------------------------------------------------
+
+_PUSH_DIRS = ["profiles", "system"]
+_SKIP_DIRS = {"chromadb", "__pycache__"}
+_SKIP_EXTS = {".pyc", ".sqlite3", ".bin"}
+
+
+def cmd_push_seed(api, args):
+    """
+    Upload local profiles/ and system/ to the HF Dataset repo.
+    Skips chromadb directories and binary files.
+    Use this once to seed the repo from a local dev environment.
+    """
+    root = Path(__file__).parent
+    dirs_to_push = [root / d for d in _PUSH_DIRS if (root / d).exists()]
+
+    if not dirs_to_push:
+        print("Nothing to push — no profiles/ or system/ directories found locally.")
+        return
+
+    files_to_push = []
+    for folder in dirs_to_push:
+        for f in folder.rglob("*"):
+            if not f.is_file():
+                continue
+            if any(part in _SKIP_DIRS for part in f.parts):
+                continue
+            if f.suffix.lower() in _SKIP_EXTS:
+                continue
+            files_to_push.append(f)
+
+    if not files_to_push:
+        print("No files found to push.")
+        return
+
+    print(f"Files to upload to '{HF_STORAGE_REPO}':")
+    for f in files_to_push:
+        print(f"  {f.relative_to(root).as_posix()}")
+    print(f"\nTotal: {len(files_to_push)} file(s)")
+
+    if not args.yes:
+        confirm = input("\nPush all files? [y/N] ").strip().lower()
+        if confirm != "y":
+            print("Cancelled.")
+            return
+
+    pushed = 0
+    failed = 0
+    for f in files_to_push:
+        rel = f.relative_to(root).as_posix()
+        try:
+            api.upload_file(
+                path_or_fileobj=str(f),
+                path_in_repo=rel,
+                repo_id=HF_STORAGE_REPO,
+                repo_type="dataset",
+            )
+            print(f"  ✓ {rel}")
+            pushed += 1
+        except Exception as e:
+            print(f"  ✗ {rel}: {e}")
+            failed += 1
+
+    print(f"\nDone — {pushed} uploaded, {failed} failed.")
+
+
+# ---------------------------------------------------------------------------
 # files — general file operations against HF Dataset repo
 # ---------------------------------------------------------------------------
 
@@ -383,6 +451,12 @@ def main():
     fd = files_sub.add_parser("delete", help="Delete a file")
     fd.add_argument("path", help="e.g. profiles/slug/docs/old.pdf")
 
+    # ── push — seed HF dataset from local data ────────────────────────────────
+    push_p = sub.add_parser("push", help="Seed HF Dataset from local profiles/ and system/")
+    push_sub = push_p.add_subparsers(dest="action", required=True)
+    ps = push_sub.add_parser("seed", help="Upload local data to HF Dataset (first-time setup)")
+    ps.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
+
     # ── parse + dispatch ──────────────────────────────────────────────────────
     args = parser.parse_args()
 
@@ -394,7 +468,7 @@ def main():
             cmd_space_watch(args)
         return
 
-    # logs / files commands: need authenticated HfApi
+    # logs / files / push commands: need authenticated HfApi
     api = _get_api()
 
     dispatch = {
@@ -405,6 +479,7 @@ def main():
         ("files", "list"):   cmd_files_list,
         ("files", "view"):   cmd_files_view,
         ("files", "delete"): cmd_files_delete,
+        ("push",  "seed"):   cmd_push_seed,
     }
     handler = dispatch.get((args.group, args.action))
     if handler:

@@ -106,7 +106,7 @@
         <!-- Avatar -->
         <div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-gray-100">
           {% if profile.has_photo %}
-          <img src="/api/profiles/{{ profile.slug }}/photo" alt="{{ profile.name }}"
+          <img src="/api/profiles/{{ profile.slug }}/photo?v={{ profile.photo_ts }}" alt="{{ profile.name }}"
             class="w-full h-full object-cover"
             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
           <div class="avatar-initials {{ color }} w-full h-full hidden">

@@ -210,10 +210,13 @@ def appearance_page(request: Request):
 
     slug = _get_owner_slug(request)
     fs   = ProfileFileStorage(slug)
+    has_photo = fs.has_photo()
+    photo_ts  = int(fs.photo_path.stat().st_mtime) if has_photo else 0
     return _r(request, "owner/appearance.html", {
         "user":        get_current_user(request),
         "slug":        slug,
-        "has_photo":   fs.has_photo(),
+        "has_photo":   has_photo,
+        "photo_ts":    photo_ts,
         "header_html": fs.read_header(),
         "profile_css": fs.read_css(),
     })
@@ -286,8 +289,20 @@ async def upload_photo(request: Request, file: UploadFile = File(...)):
         return redir
     slug = _get_owner_slug(request)
     data = await file.read()
+    if not data:
+        return HTMLResponse('<p class="text-red-600 text-sm font-medium">No file data received. Please select a file and try again.</p>', status_code=400)
     ProfileFileStorage(slug).save_photo(data)
-    return HTMLResponse('<p class="text-green-600 text-sm font-medium">Photo updated successfully.</p>')
+    import time
+    ts = int(time.time())
+    oob_img = (
+        f'<img id="photo-preview-img" hx-swap-oob="true" '
+        f'src="/api/profiles/{slug}/photo?t={ts}" '
+        f'alt="Profile photo" '
+        f'class="w-24 h-24 rounded-full object-cover border-2 border-gray-200 shadow-sm"/>'
+    )
+    return HTMLResponse(
+        f'<p class="text-green-600 text-sm font-medium">Photo updated successfully.</p>{oob_img}'
+    )
 
 
 # ── Status (enable / disable only — no delete for owners) ─────────────────────

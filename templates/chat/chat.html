@@ -26,8 +26,10 @@
       --color-primary-glow:     rgba(79,70,229,0.2);
       --color-bubble-user:      #4f46e5;
       --color-bubble-user-text: #ffffff;
+      --font-size-bubble-user:  14px;
       --color-bubble-bot:       #f3f4f6;
       --color-bubble-bot-text:  #111827;
+      --font-size-bubble-bot:   14px;
       --color-avatar-bg:        #eef2ff;
       --color-avatar-text:      #4f46e5;
       --color-carousel-bg:      #e8f5f1;
@@ -81,11 +83,13 @@
     .chat-bubble-user {
       background: var(--color-bubble-user);
       color: var(--color-bubble-user-text);
+      font-size: var(--font-size-bubble-user);
       border-radius: 18px 18px 4px 18px;
     }
     .chat-bubble-assistant {
       background: var(--color-bubble-bot);
       color: var(--color-bubble-bot-text);
+      font-size: var(--font-size-bubble-bot);
       border-radius: 18px 18px 18px 4px;
     }
     .followup-btn {
@@ -158,7 +162,7 @@
     <!-- ── Header ──────────────────────────────────────── -->
     <div class="border-b border-gray-200 px-6 py-4 flex items-center gap-4">
       {% if profile.has_photo %}
-      <img src="/api/profiles/{{ profile.slug }}/photo"
+      <img src="/api/profiles/{{ profile.slug }}/photo?v={{ profile.photo_ts }}"
         class="w-12 h-12 rounded-full object-cover photo-ring shrink-0" />
       {% else %}
       <div class="avatar-icon w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0">
@@ -202,7 +206,7 @@
               <div class="avatar-icon w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-1">
                 {{ profile.name[0] }}
               </div>
-              <div class="chat-bubble-assistant px-4 py-3 text-sm leading-relaxed" style="max-width: 82%;">
+              <div class="chat-bubble-assistant px-4 py-3 leading-relaxed" style="max-width: 82%;">
                 {{ welcome_message | md_bold | replace('\n\n', '</p><p class="msg-para">') | replace('\n', '<br>') | safe }}
               </div>
             </div>
@@ -327,7 +331,7 @@ function addMessage(role, text) {
   }
 
   const bubble = document.createElement("div");
-  bubble.className = (role === "user" ? "chat-bubble-user" : "chat-bubble-assistant") + " px-4 py-3 text-sm leading-relaxed";
+  bubble.className = (role === "user" ? "chat-bubble-user" : "chat-bubble-assistant") + " px-4 py-3 leading-relaxed";
   bubble.style.maxWidth = "82%";
   bubble.innerHTML = role === "user"
     ? text.replace(/\n/g, "<br>")

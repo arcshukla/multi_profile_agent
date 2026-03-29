@@ -30,7 +30,7 @@
       <div class="flex items-start gap-6">
         <div class="flex-shrink-0 text-center">
           {% if has_photo %}
-          <img id="photo-preview-img" src="/api/profiles/{{ slug }}/photo" alt="Profile photo"
+          <img id="photo-preview-img" src="/api/profiles/{{ slug }}/photo?v={{ photo_ts }}" alt="Profile photo"
             class="w-24 h-24 rounded-full object-cover border-2 border-gray-200 shadow-sm"/>
           {% else %}
           <div id="photo-preview-img"
@@ -130,7 +130,7 @@
               <input type="color" id="{{ id }}" value="{{ default }}"
                 oninput="syncPicker('{{ id }}', this.value)"
                 class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5 flex-shrink-0"/>
-              <input type="text" id="{{ id }}-text" value="{{ default }}"
+              <input type="text" value="{{ default }}"
                 oninput="syncPickerText('{{ id }}', this.value)"
                 class="flex-1 min-w-0 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5
                        focus:outline-none focus:ring-2 focus:ring-violet-300"/>
@@ -163,6 +163,19 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {{ picker("pick-bubble-user",      "Background",  "#4f46e5") }}
           {{ picker("pick-bubble-user-text", "Text Color",  "#ffffff") }}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Font Size</label>
+            <select id="pick-bubble-user-size" onchange="applyPickerPreview('pick-bubble-user-size', this.value)"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-2
+                     focus:outline-none focus:ring-2 focus:ring-violet-300">
+              <option value="12px">12 px</option>
+              <option value="13px">13 px</option>
+              <option value="14px" selected>14 px (default)</option>
+              <option value="15px">15 px</option>
+              <option value="16px">16 px</option>
+              <option value="18px">18 px</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -170,8 +183,21 @@
       <div>
         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Bot Bubble</p>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {{ picker("pick-bubble-bot",      "Background", "#add8e6") }}
-          {{ picker("pick-bubble-bot-text", "Text Color", "#334155") }}
+          {{ picker("pick-bubble-bot",      "Background", "#f3f4f6") }}
+          {{ picker("pick-bubble-bot-text", "Text Color", "#111827") }}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Font Size</label>
+            <select id="pick-bubble-bot-size" onchange="applyPickerPreview('pick-bubble-bot-size', this.value)"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-2
+                     focus:outline-none focus:ring-2 focus:ring-violet-300">
+              <option value="12px">12 px</option>
+              <option value="13px">13 px</option>
+              <option value="14px" selected>14 px (default)</option>
+              <option value="15px">15 px</option>
+              <option value="16px">16 px</option>
+              <option value="18px">18 px</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -183,7 +209,7 @@
           <div id="prev-bubble-user" class="px-3 py-1.5 rounded-xl font-medium"
             style="background:#4f46e5;color:#ffffff">User message</div>
           <div id="prev-bubble-bot" class="px-3 py-1.5 rounded-xl"
-            style="background:#add8e6;color:#334155">Bot reply</div>
+            style="background:#f3f4f6;color:#111827">Bot reply</div>
           <div id="prev-text" class="font-medium" style="color:#0f172a">Body text sample</div>
           <div id="prev-bg" class="px-3 py-1.5 rounded-lg border text-gray-500"
             style="background:#f8fafc">Page background</div>
@@ -337,18 +363,22 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ── CSS picker helpers ─────────────────────────────────────────────────────────
+// Keep in sync with the :root defaults in templates/chat/chat.html
 const DEFAULTS = {
   'pick-bg':              '#f8fafc',
-  'pick-text':            '#0f172a',
+  'pick-text':            '#111827',
   'pick-primary':         '#4f46e5',
   'pick-bubble-user':     '#4f46e5',
   'pick-bubble-user-text':'#ffffff',
-  'pick-bubble-bot':      '#add8e6',
-  'pick-bubble-bot-text': '#334155',
+  'pick-bubble-bot':      '#f3f4f6',
+  'pick-bubble-bot-text': '#111827',
+  'pick-bubble-user-size':'14px',
+  'pick-bubble-bot-size': '14px',
 };
 
 function syncPicker(id, value) {
-  document.getElementById(id + '-text').value = value;
+  const colorEl = document.getElementById(id);
+  if (colorEl) { const hex = colorEl.nextElementSibling; if (hex) hex.value = value; }
   applyPickerPreview(id, value);
 }
 function syncPickerText(id, value) {
@@ -362,8 +392,10 @@ function applyPickerPreview(id, value) {
     'pick-primary':          () => {},
     'pick-bubble-user':      () => document.getElementById('prev-bubble-user').style.background = value,
     'pick-bubble-user-text': () => document.getElementById('prev-bubble-user').style.color = value,
+    'pick-bubble-user-size': () => document.getElementById('prev-bubble-user').style.fontSize = value,
     'pick-bubble-bot':       () => document.getElementById('prev-bubble-bot').style.background = value,
     'pick-bubble-bot-text':  () => document.getElementById('prev-bubble-bot').style.color = value,
+    'pick-bubble-bot-size':  () => document.getElementById('prev-bubble-bot').style.fontSize = value,
   };
   if (map[id]) map[id]();
 }
@@ -377,18 +409,16 @@ function val(id) { return document.getElementById(id).value; }
 function buildCssFromPickers() {
   return `:root {
   --color-primary:          ${val('pick-primary')};
-  --color-bg:               ${val('pick-bg')};
-  --color-text:             ${val('pick-text')};
+  --color-page-bg:          ${val('pick-bg')};
   --color-bubble-user:      ${val('pick-bubble-user')};
   --color-bubble-user-text: ${val('pick-bubble-user-text')};
+  --font-size-bubble-user:  ${document.getElementById('pick-bubble-user-size').value};
   --color-bubble-bot:       ${val('pick-bubble-bot')};
   --color-bubble-bot-text:  ${val('pick-bubble-bot-text')};
+  --font-size-bubble-bot:   ${document.getElementById('pick-bubble-bot-size').value};
   --font-family:            '${val('pick-font')}', sans-serif;
 }
-body        { background: var(--color-bg); color: var(--color-text); font-family: var(--font-family); }
-.bubble-user { background: var(--color-bubble-user); color: var(--color-bubble-user-text); }
-.bubble-bot  { background: var(--color-bubble-bot);  color: var(--color-bubble-bot-text); }
-a, .btn-primary { background: var(--color-primary); }
+body { background: var(--color-page-bg); color: ${val('pick-text')}; font-family: var(--font-family); }
 `;
 }
 
@@ -413,13 +443,18 @@ function postCss(css, statusId) {
 }
 
 function resetCssPickers() {
-  Object.entries(DEFAULTS).forEach(([id, v]) => {
-    document.getElementById(id).value = v;
-    document.getElementById(id + '-text').value = v;
-    applyPickerPreview(id, v);
+  const colorIds = ['pick-bg','pick-text','pick-primary','pick-bubble-user','pick-bubble-user-text','pick-bubble-bot','pick-bubble-bot-text'];
+  colorIds.forEach(id => {
+    document.getElementById(id).value = DEFAULTS[id];
+    const _el = document.getElementById(id); if (_el) { const _hex = _el.nextElementSibling; if (_hex) _hex.value = DEFAULTS[id]; }
+    applyPickerPreview(id, DEFAULTS[id]);
   });
   document.getElementById('pick-font').value = 'Inter';
   updateFont('Inter');
+  ['pick-bubble-user-size','pick-bubble-bot-size'].forEach(id => {
+    document.getElementById(id).value = DEFAULTS[id];
+    applyPickerPreview(id, DEFAULTS[id]);
+  });
 }
 
 // Initialise pickers from existing raw CSS
@@ -430,8 +465,8 @@ function resetCssPickers() {
     return m ? m[1].trim() : null;
   }
   const map = {
-    'pick-bg':               extract('--color-bg'),
-    'pick-text':             extract('--color-text'),
+    'pick-bg':               extract('--color-page-bg') || extract('--color-bg'),
+    'pick-text':             (raw.match(/body\s*\{[^}]*\bcolor\s*:\s*(#[0-9a-fA-F]{3,6})/)||[])[1] || null,
     'pick-primary':          extract('--color-primary'),
     'pick-bubble-user':      extract('--color-bubble-user') || extract('--color-bubble-user\\b'),
     'pick-bubble-user-text': extract('--color-bubble-user-text'),
@@ -441,9 +476,7 @@ function resetCssPickers() {
   Object.entries(map).forEach(([id, v]) => {
     if (!v) return;
     const picker = document.getElementById(id);
-    const text   = document.getElementById(id + '-text');
-    if (picker) picker.value = v;
-    if (text)   text.value   = v;
+    if (picker) { picker.value = v; const hex = picker.nextElementSibling; if (hex) hex.value = v; }
     applyPickerPreview(id, v);
   });
   const fontMatch = raw.match(/--font-family\s*:\s*'?([^',;\n]+)/);
@@ -455,6 +488,18 @@ function resetCssPickers() {
     }
     updateFont(font);
   }
+  // Font sizes
+  [['--font-size-bubble-user','pick-bubble-user-size'],['--font-size-bubble-bot','pick-bubble-bot-size']].forEach(([varName, selId]) => {
+    const m = raw.match(new RegExp(varName + '\\s*:\\s*([^;\\n]+)'));
+    if (m) {
+      const sz = m[1].trim();
+      const sel = document.getElementById(selId);
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === sz) { sel.selectedIndex = i; break; }
+      }
+      applyPickerPreview(selId, sz);
+    }
+  });
 })();
 </script>
 

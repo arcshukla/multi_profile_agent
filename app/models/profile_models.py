@@ -74,6 +74,7 @@ class ProfileResponse(BaseModel):
     status: str
     base_folder: str
     has_photo: bool = False
+    photo_ts: int = 0          # file modification timestamp for cache-busting
     document_count: int = 0
     chunk_count: int = 0
     last_indexed: Optional[str] = None   # ISO timestamp or None

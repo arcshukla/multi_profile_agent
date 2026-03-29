@@ -54,7 +54,9 @@ class UserService:
             return {}
 
     def _save(self, data: dict) -> None:
+        from app.storage.hf_sync import hf_sync
         _USERS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        hf_sync.push_file(_USERS_FILE)
 
     def list_users(self) -> dict[str, dict]:
         """Return all users from users.json (does not include ADMIN_EMAILS env entries)."""

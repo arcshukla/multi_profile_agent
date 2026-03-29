@@ -106,7 +106,24 @@ def get_photo(slug: str):
     fs = ProfileFileStorage(slug)
     if not fs.has_photo():
         raise HTTPException(status_code=404, detail="No photo")
-    return FileResponse(str(fs.photo_path), media_type="image/jpeg")
+    # Detect actual image type from file header
+    with open(fs.photo_path, "rb") as f:
+        header = f.read(12)
+    if header[:8] == b"\x89PNG\r\n\x1a\n":
+        media_type = "image/png"
+    elif header[:6] in (b"GIF87a", b"GIF89a"):
+        media_type = "image/gif"
+    elif header[6:10] in (b"JFIF", b"Exif") or header[:2] == b"\xff\xd8":
+        media_type = "image/jpeg"
+    elif header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        media_type = "image/webp"
+    else:
+        media_type = "image/jpeg"
+    return FileResponse(
+        str(fs.photo_path),
+        media_type=media_type,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 # ── Header / CSS / JS ─────────────────────────────────────────────────────────

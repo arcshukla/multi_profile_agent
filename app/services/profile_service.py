@@ -215,12 +215,15 @@ class ProfileService:
         fs = ProfileFileStorage(entry.slug_name)
         status_info = index_service.get_status(entry.slug_name)
 
+        has_photo = fs.has_photo()
+        photo_ts  = int(fs.photo_path.stat().st_mtime) if has_photo else 0
         return ProfileResponse(
             name=entry.name,
             slug=entry.slug_name,
             status=entry.status,
             base_folder=entry.base_folder,
-            has_photo=fs.has_photo(),
+            has_photo=has_photo,
+            photo_ts=photo_ts,
             document_count=status_info.get("document_count", 0),
             chunk_count=status_info.get("chunk_count", 0),
             last_indexed=status_info.get("last_indexed"),

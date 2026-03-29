@@ -118,12 +118,18 @@ class HFSync:
 
     # ── Per-write push (fire-and-forget background threads) ───────────────────
 
-    def push_file(self, path: Path) -> None:
+    def push_file(self, path: Path, wait: bool = False) -> None:
         """
-        Upload a single file to HF Dataset in a daemon background thread.
+        Upload a single file to HF Dataset.
 
-        Safe to call after every file write — the thread is cheap and daemon
-        so it won't block app shutdown.  Silently skipped for chromadb paths.
+        wait=False (default): fire-and-forget daemon thread — safe for
+          frequent writes (CSS, prompts, analytics) where losing a write
+          on restart is acceptable.
+        wait=True: blocks until the upload completes — use for critical
+          user-initiated writes (e.g. profile photo) where losing the
+          file on a Space restart would be confusing.
+
+        Silently skipped for chromadb paths or when sync is disabled.
         """
         if not self._enabled:
             return
@@ -147,7 +153,10 @@ class HFSync:
             except Exception as e:
                 logger.warning("HFSync: push failed for '%s': %s", path.name, e)
 
-        threading.Thread(target=_do, daemon=True, name=f"hf-push-{path.name}").start()
+        if wait:
+            _do()
+        else:
+            threading.Thread(target=_do, daemon=True, name=f"hf-push-{path.name}").start()
 
     def delete_file(self, path: Path) -> None:
         """

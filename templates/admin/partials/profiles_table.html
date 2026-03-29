@@ -17,7 +17,7 @@
       <td class="px-5 py-3.5 font-medium text-gray-900">
         <div class="flex items-center gap-2.5">
           {% if p.has_photo %}
-          <img src="/api/profiles/{{ p.slug }}/photo" class="w-7 h-7 rounded-full object-cover" />
+          <img src="/api/profiles/{{ p.slug }}/photo?v={{ p.photo_ts }}" class="w-7 h-7 rounded-full object-cover" />
           {% else %}
           <div class="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs">
             {{ p.name[0] }}

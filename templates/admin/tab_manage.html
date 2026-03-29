@@ -68,7 +68,7 @@
     <!-- Current / preview -->
     <div id="photo-display" class="flex items-center gap-4">
       {% if profile.has_photo %}
-      <img id="photo-img" src="/api/profiles/{{ profile.slug }}/photo" class="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
+      <img id="photo-img" src="/api/profiles/{{ profile.slug }}/photo?v={{ profile.photo_ts }}" class="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
       {% else %}
       <div id="photo-img" class="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-2xl border-2 border-dashed border-gray-300">{{ profile.name[0] }}</div>
       {% endif %}
@@ -147,88 +147,93 @@
   <div class="p-5 space-y-5">
 
     <!-- Curated pickers -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="css-pickers">
+    {% macro cpicker(id, label, default) %}
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ label }}</label>
+      <div class="flex items-center gap-2">
+        <input type="color" id="{{ id }}" value="{{ default }}"
+          oninput="updateCssVar('{{ id }}', this.value)"
+          class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5 flex-shrink-0" />
+        <input type="text" value="{{ default }}"
+          oninput="document.getElementById('{{ id }}').value=this.value; updateCssVar('{{ id }}',this.value)"
+          class="flex-1 min-w-0 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+    </div>
+    {% endmacro %}
 
+    <div class="space-y-4" id="css-pickers">
+
+      <!-- General -->
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1.5">Primary Color</label>
-        <div class="flex items-center gap-2">
-          <input type="color" id="pick-primary" value="#4f46e5"
-            oninput="updateCssVar('--color-primary', this.value); document.getElementById('pick-primary-dark').value = darken(this.value);"
-            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
-          <input type="text" id="pick-primary-text" value="#4f46e5"
-            oninput="document.getElementById('pick-primary').value=this.value; updateCssVar('--color-primary',this.value)"
-            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">General</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {{ cpicker("pick-primary", "Primary Color", "#4f46e5") }}
+          {{ cpicker("pick-bg",      "Background",    "#f8fafc") }}
+          {{ cpicker("pick-text",    "Body Text",     "#111827") }}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Font</label>
+            <select id="pick-font" onchange="updateFont(this.value)"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="Inter">Inter (default)</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Georgia">Georgia (serif)</option>
+              <option value="Merriweather">Merriweather</option>
+              <option value="Lato">Lato</option>
+              <option value="Poppins">Poppins</option>
+            </select>
+          </div>
         </div>
       </div>
 
+      <!-- User Bubble -->
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1.5">Background</label>
-        <div class="flex items-center gap-2">
-          <input type="color" id="pick-bg" value="#f8fafc"
-            oninput="updateCssVar('--color-bg', this.value)"
-            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
-          <input type="text" value="#f8fafc"
-            oninput="document.getElementById('pick-bg').value=this.value; updateCssVar('--color-bg',this.value)"
-            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">User Bubble</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {{ cpicker("pick-bubble-user",      "Background", "#4f46e5") }}
+          {{ cpicker("pick-bubble-user-text", "Text Color", "#ffffff") }}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Font Size</label>
+            <select id="pick-bubble-user-size" onchange="document.getElementById('prev-bubble-user').style.fontSize=this.value"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="12px">12 px</option>
+              <option value="13px">13 px</option>
+              <option value="14px" selected>14 px (default)</option>
+              <option value="15px">15 px</option>
+              <option value="16px">16 px</option>
+              <option value="18px">18 px</option>
+            </select>
+          </div>
         </div>
       </div>
 
+      <!-- Bot Bubble -->
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1.5">Bot Bubble</label>
-        <div class="flex items-center gap-2">
-          <input type="color" id="pick-bubble-bot" value="#add8e6"
-            oninput="updateCssVar('--color-bubble-bot', this.value)"
-            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
-          <input type="text" value="#add8e6"
-            oninput="document.getElementById('pick-bubble-bot').value=this.value; updateCssVar('--color-bubble-bot',this.value)"
-            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Bot Bubble</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {{ cpicker("pick-bubble-bot",      "Background", "#f3f4f6") }}
+          {{ cpicker("pick-bubble-bot-text", "Text Color", "#111827") }}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Font Size</label>
+            <select id="pick-bubble-bot-size" onchange="document.getElementById('prev-bubble-bot').style.fontSize=this.value"
+              class="w-full text-xs border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="12px">12 px</option>
+              <option value="13px">13 px</option>
+              <option value="14px" selected>14 px (default)</option>
+              <option value="15px">15 px</option>
+              <option value="16px">16 px</option>
+              <option value="18px">18 px</option>
+            </select>
+          </div>
         </div>
-      </div>
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1.5">User Bubble</label>
-        <div class="flex items-center gap-2">
-          <input type="color" id="pick-bubble-user" value="#4f46e5"
-            oninput="updateCssVar('--color-bubble-user', this.value)"
-            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
-          <input type="text" value="#4f46e5"
-            oninput="document.getElementById('pick-bubble-user').value=this.value; updateCssVar('--color-bubble-user',this.value)"
-            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1.5">Body Text</label>
-        <div class="flex items-center gap-2">
-          <input type="color" id="pick-text" value="#0f172a"
-            oninput="updateCssVar('--color-text', this.value)"
-            class="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
-          <input type="text" value="#0f172a"
-            oninput="document.getElementById('pick-text').value=this.value; updateCssVar('--color-text',this.value)"
-            class="flex-1 text-xs font-mono border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1.5">Font</label>
-        <select id="pick-font" onchange="updateFont(this.value)"
-          class="w-full text-xs border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="Inter">Inter (default)</option>
-          <option value="Roboto">Roboto</option>
-          <option value="Georgia">Georgia (serif)</option>
-          <option value="Merriweather">Merriweather</option>
-          <option value="Lato">Lato</option>
-          <option value="Poppins">Poppins</option>
-        </select>
       </div>
 
     </div>
 
     <!-- Live preview strip -->
     <div id="css-preview-strip" class="rounded-lg border border-gray-200 p-3 text-xs flex items-center gap-3">
-      <div id="prev-bubble-bot" class="px-3 py-1.5 rounded-xl text-gray-800" style="background:#add8e6">Bot reply</div>
-      <div id="prev-bubble-user" class="px-3 py-1.5 rounded-xl text-white" style="background:#4f46e5">User message</div>
-      <div id="prev-text" class="font-medium" style="color:#0f172a">Body text sample</div>
+      <div id="prev-bubble-bot" class="px-3 py-1.5 rounded-xl" style="background:#f3f4f6;color:#111827">Bot reply</div>
+      <div id="prev-bubble-user" class="px-3 py-1.5 rounded-xl" style="background:#4f46e5;color:#ffffff">User message</div>
+      <div id="prev-text" class="font-medium" style="color:#111827">Body text sample</div>
     </div>
 
     <div class="flex gap-3 pt-2 border-t border-gray-100">
@@ -476,62 +481,78 @@ function handleDocUpload(event, slug) {
 }
 
 // ── CSS pickers ────────────────────────────────────────────────────────────
+// Keep in sync with :root defaults in templates/chat/chat.html
 const CSS_DEFAULTS = {
-  '--color-primary':     '#4f46e5',
-  '--color-bg':          '#f8fafc',
-  '--color-bubble-bot':  '#add8e6',
-  '--color-bubble-user': '#4f46e5',
-  '--color-text':        '#0f172a',
-  'font-family':         'Inter',
+  '--color-primary':          '#4f46e5',
+  '--color-page-bg':          '#f8fafc',
+  '--color-bubble-bot':       '#f3f4f6',
+  '--color-bubble-bot-text':  '#111827',
+  '--color-bubble-user':      '#4f46e5',
+  '--color-bubble-user-text': '#ffffff',
+  '--color-text':             '#111827',
+  'font-family':              'Inter',
+  '--font-size-bubble-user':  '14px',
+  '--font-size-bubble-bot':   '14px',
 };
 
 // Populate pickers from existing profile CSS if present
 (function initPickers() {
   const raw = document.getElementById('raw-css-editor')?.value || '';
   const extract = (varName) => {
-    const m = raw.match(new RegExp(varName.replace('--','--') + '\\s*:\\s*([^;]+)'));
+    const m = raw.match(new RegExp(varName.replace(/[-]/g, '\\-') + '\\s*:\\s*([^;\\n]+)'));
     return m ? m[1].trim() : null;
   };
+  // Color pickers
   [
-    ['--color-primary',    'pick-primary'],
-    ['--color-bg',         'pick-bg'],
-    ['--color-bubble-bot', 'pick-bubble-bot'],
-    ['--color-bubble-user','pick-bubble-user'],
-    ['--color-text',       'pick-text'],
+    ['--color-primary',          'pick-primary'],
+    ['--color-page-bg',          'pick-bg'],
+    ['--color-bubble-bot',       'pick-bubble-bot'],
+    ['--color-bubble-bot-text',  'pick-bubble-bot-text'],
+    ['--color-bubble-user',      'pick-bubble-user'],
+    ['--color-bubble-user-text', 'pick-bubble-user-text'],
+    ['--color-text',             'pick-text'],
   ].forEach(([varName, pickerId]) => {
     const val = extract(varName);
     if (val && val.startsWith('#')) {
-      const el = document.getElementById(pickerId);
-      if (el) { el.value = val; el.nextElementSibling.value = val; }
+      const picker = document.getElementById(pickerId);
+        if (picker) { picker.value = val; const hex = picker.nextElementSibling; if (hex) hex.value = val; }
+    }
+  });
+  // Font family
+  const fontMatch = raw.match(/font-family\s*:\s*["']?([^"',;\n]+)/);
+  if (fontMatch) {
+    const font = fontMatch[1].trim();
+    const sel = document.getElementById('pick-font');
+    if (sel) { for (let i = 0; i < sel.options.length; i++) { if (sel.options[i].value.toLowerCase() === font.toLowerCase()) { sel.selectedIndex = i; break; } } }
+  }
+  // Font sizes
+  [['--font-size-bubble-user','pick-bubble-user-size','prev-bubble-user'],
+   ['--font-size-bubble-bot', 'pick-bubble-bot-size', 'prev-bubble-bot']].forEach(([varName, selId, prevId]) => {
+    const sz = extract(varName);
+    if (sz) {
+      const sel = document.getElementById(selId);
+      if (sel) { for (let i = 0; i < sel.options.length; i++) { if (sel.options[i].value === sz) { sel.selectedIndex = i; break; } } }
+      const prev = document.getElementById(prevId);
+      if (prev) prev.style.fontSize = sz;
     }
   });
 })();
 
-function updateCssVar(varName, value) {
+function updateCssVar(pickerId, value) {
   // Update preview strip
   const map = {
-    '--color-bubble-bot':  () => { document.getElementById('prev-bubble-bot').style.background = value; },
-    '--color-bubble-user': () => { document.getElementById('prev-bubble-user').style.background = value; },
-    '--color-text':        () => { document.getElementById('prev-text').style.color = value; },
+    'pick-bubble-bot':       () => { document.getElementById('prev-bubble-bot').style.background = value; },
+    'pick-bubble-bot-text':  () => { document.getElementById('prev-bubble-bot').style.color = value; },
+    'pick-bubble-user':      () => { document.getElementById('prev-bubble-user').style.background = value; },
+    'pick-bubble-user-text': () => { document.getElementById('prev-bubble-user').style.color = value; },
+    'pick-text':             () => { document.getElementById('prev-text').style.color = value; },
   };
-  if (map[varName]) map[varName]();
-  // Sync hex text field next to color picker
-  syncPickerText(varName, value);
-}
-
-function syncPickerText(varName, value) {
-  const pairs = {
-    '--color-primary':    'pick-primary',
-    '--color-bg':         'pick-bg',
-    '--color-bubble-bot': 'pick-bubble-bot',
-    '--color-bubble-user':'pick-bubble-user',
-    '--color-text':       'pick-text',
-  };
-  const id = pairs[varName];
-  if (id) {
-    const el = document.getElementById(id);
-    if (el) { el.nextElementSibling.value = value; }
-  }
+  if (map[pickerId]) map[pickerId]();
+  // Sync hex text field next to color picker (sibling, no ID needed)
+  const colorEl = document.getElementById(pickerId);
+  if (colorEl) { const hex = colorEl.nextElementSibling; if (hex) hex.value = value; }
+  const picker = document.getElementById(pickerId);
+  if (picker && picker.type === 'color') picker.value = value;
 }
 
 function updateFont(font) {
@@ -539,39 +560,51 @@ function updateFont(font) {
 }
 
 function resetCssPickers() {
-  document.getElementById('pick-primary').value = '#4f46e5';
-  document.getElementById('pick-bg').value = '#f8fafc';
-  document.getElementById('pick-bubble-bot').value = '#add8e6';
-  document.getElementById('pick-bubble-user').value = '#4f46e5';
-  document.getElementById('pick-text').value = '#0f172a';
+  const colorPickers = [
+    ['pick-primary',          '#4f46e5'],
+    ['pick-bg',               '#f8fafc'],
+    ['pick-text',             '#111827'],
+    ['pick-bubble-user',      '#4f46e5'],
+    ['pick-bubble-user-text', '#ffffff'],
+    ['pick-bubble-bot',       '#f3f4f6'],
+    ['pick-bubble-bot-text',  '#111827'],
+  ];
+  colorPickers.forEach(([id, v]) => {
+    const el = document.getElementById(id);
+    if (el) { el.value = v; const hex = el.nextElementSibling; if (hex) hex.value = v; }
+    updateCssVar(id, v);
+  });
   document.getElementById('pick-font').value = 'Inter';
-  document.getElementById('prev-bubble-bot').style.background = '#add8e6';
-  document.getElementById('prev-bubble-user').style.background = '#4f46e5';
-  document.getElementById('prev-text').style.color = '#0f172a';
+  document.getElementById('pick-bubble-user-size').value = '14px';
+  document.getElementById('pick-bubble-bot-size').value  = '14px';
 }
 
 function buildCssFromPickers() {
-  const p  = document.getElementById('pick-primary').value;
-  const bg = document.getElementById('pick-bg').value;
-  const bb = document.getElementById('pick-bubble-bot').value;
-  const bu = document.getElementById('pick-bubble-user').value;
-  const tx = document.getElementById('pick-text').value;
-  const fn = document.getElementById('pick-font').value;
+  const p   = document.getElementById('pick-primary').value;
+  const bg  = document.getElementById('pick-bg').value;
+  const bb  = document.getElementById('pick-bubble-bot').value;
+  const bbt = document.getElementById('pick-bubble-bot-text').value;
+  const bbs = document.getElementById('pick-bubble-bot-size').value;
+  const bu  = document.getElementById('pick-bubble-user').value;
+  const but = document.getElementById('pick-bubble-user-text').value;
+  const bus = document.getElementById('pick-bubble-user-size').value;
+  const tx  = document.getElementById('pick-text').value;
+  const fn  = document.getElementById('pick-font').value;
   return `:root {
-  --color-primary:       ${p};
-  --color-primary-dark:  ${darken(p)};
-  --color-primary-glow:  ${hexToRgba(p, 0.15)};
-  --color-bg:            ${bg};
-  --color-bg-surface:    white;
-  --color-text:          ${tx};
-  --color-text-dark:     ${darken(tx, 0.05)};
-  --color-text-on-primary: white;
-  --color-border:        #e2e8f0;
-  --color-border-input:  gray;
-  --color-bubble-bot:    ${bb};
-  --color-bubble-user:   ${bu};
+  --color-primary:          ${p};
+  --color-primary-dark:     ${darken(p)};
+  --color-primary-glow:     ${hexToRgba(p, 0.15)};
+  --color-page-bg:          ${bg};
+  --color-bubble-bot:       ${bb};
+  --color-bubble-bot-text:  ${bbt};
+  --font-size-bubble-bot:   ${bbs};
+  --color-bubble-user:      ${bu};
+  --color-bubble-user-text: ${but};
+  --font-size-bubble-user:  ${bus};
 }
 body {
+  background: var(--color-page-bg);
+  color: ${tx};
   font-family: "${fn}", "Segoe UI", Roboto, Arial, sans-serif;
 }`;
 }

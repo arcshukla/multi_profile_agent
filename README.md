@@ -1,3 +1,13 @@
+---
+title: AI Profile Platform
+emoji: 🤖
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 <div align="center">
 
 # AI Profile Platform
@@ -15,7 +25,7 @@
 
 ---
 
-[Live Demo](https://arcshukla-ai-profile-platform.hf.space/) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Configuration](#-configuration-reference)
+[Live Demo](#) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Configuration](#-configuration-reference)
 
 </div>
 
@@ -24,7 +34,7 @@
 ## Table of Contents
 
 - [The Business Problem](#-the-business-problem)
-- [What is AI Profile Platform?](#-what-is-ai-profile-platform)
+- [What is MultiProfile AI?](#-what-is-multiprofile-ai)
 - [Feature Highlights](#-feature-highlights)
 - [Architecture Overview](#-architecture-overview)
 - [How It Works — User Journeys](#-how-it-works--user-journeys)
@@ -50,7 +60,7 @@ When someone wants to know about your career — your leadership philosophy, the
 
 **Recruiters, collaborators, clients, and fans all face the same friction:**
 
-| The Old Way | The AI Profile Platform Way |
+| The Old Way | The MultiProfile AI Way |
 |-------------|----------------------|
 | Scroll through a LinkedIn profile | Chat naturally in plain English |
 | Download a PDF resume and search manually | Ask "What's her biggest engineering achievement?" and get a direct answer |
@@ -58,13 +68,13 @@ When someone wants to know about your career — your leadership philosophy, the
 | Read generic summaries that lose nuance | Answers grounded in the professional's own words and documents |
 | One static version for all audiences | AI adapts tone and depth to every visitor's question |
 
-**AI Profile Platform solves this** by giving every professional a **conversational AI twin** — a chat interface backed by their resume, recommendations, project history, and achievements — that anyone can talk to, anytime.
+**MultiProfile AI solves this** by giving every professional a **conversational AI twin** — a chat interface backed by their resume, recommendations, project history, and achievements — that anyone can talk to, anytime.
 
 ---
 
-## 🚀 What is AI Profile Platform?
+## 🚀 What is MultiProfile AI?
 
-AI Profile Platform is a **multi-tenant SaaS platform** that lets professionals create, manage, and publish their own **AI-powered career chat profile**.
+MultiProfile AI is a **multi-tenant SaaS platform** that lets professionals create, manage, and publish their own **AI-powered career chat profile**.
 
 Each profile is:
 
@@ -239,15 +249,15 @@ sequenceDiagram
 flowchart TD
     A([Professional visits /explore]) --> B[Sign in with Google]
     B --> C{Known user?}
-    C -->|Yes| D["/owner/dashboard"]
-    C -->|No| E["/register form"]
-    E --> F[Enter name — slug auto-generated]
+    C -->|Yes| D[/owner/dashboard]
+    C -->|No| E[/register form]
+    E --> F[Enter name → slug auto-generated]
     F --> G[Profile created — disabled]
-    G --> H[Admin approves and enables]
-    H --> I["Upload documents: resume.pdf · recommendations.txt · projects.md"]
-    I --> J["Trigger Indexing: LLM splits docs into topic-tagged chunks"]
-    J --> K["Customize: header HTML · CSS · system prompt · welcome message"]
-    K --> L([Profile live at /chat/your-name])
+    G --> H[Admin approves & enables]
+    H --> I[Upload documents\nresume.pdf · recommendations.txt · projects.md]
+    I --> J[Trigger Indexing\nLLM splits docs into topic-tagged chunks]
+    J --> K[Customize\nheader HTML · CSS · system prompt · welcome message]
+    K --> L([Profile live at /chat/your-name 🚀])
 ```
 
 ### Journey 2: Visitor Discovers and Chats
@@ -299,25 +309,25 @@ flowchart LR
 
 ### Philosophy
 
-It uses a **two-tier prompt architecture** that keeps the platform grounded and safe while giving owners meaningful customization:
+MultiProfile AI uses a **two-tier prompt architecture** that keeps the platform grounded and safe while giving owners meaningful customization:
 
 ```mermaid
-graph TB
-    subgraph SP["📋 Full System Prompt"]
-        subgraph OE["✏️ Owner-Editable Layer (stored in profiles/slug/config/prompts.py)"]
-            A["Persona definition — You are acting as name"]
+block-beta
+    columns 1
+    block:SP["Full System Prompt"]:1
+        block:OE["✏️ Owner-Editable Layer (stored in profiles/slug/config/prompts.py)"]:1
+            A["Persona definition — 'You are acting as {name}'"]
             B["Allowed topic list"]
             C["Tone and response style"]
             D["Welcome message · follow-up question style"]
         end
-        subgraph LS["🔒 Locked System Suffix (platform-owned, appended at runtime)"]
+        block:LS["🔒 Locked System Suffix (platform-owned, appended at runtime)"]:1
             E["Grounding rules — stay on professional topics"]
             F["Tool call instructions — JSON schema for record_user_details"]
             G["Output format constraints"]
             H["Context injection template"]
         end
     end
-    OE --> LS
 ```
 
 ### LLM Provider Flexibility
@@ -366,7 +376,7 @@ record_unknown_question(
 
 ## 🔍 RAG Pipeline Deep Dive
 
-It uses **Semantic RAG with LLM-powered topic indexing** — a step beyond naive chunking.
+MultiProfile AI uses **Semantic RAG with LLM-powered topic indexing** — a step beyond naive chunking.
 
 ### Indexing Pipeline
 
@@ -598,24 +608,24 @@ multiprofile/
 ```mermaid
 graph LR
     subgraph Anon["🌍 Anonymous"]
-        A1["/explore"]
-        A2["/chat/slug"]
-        A3["/register"]
+        A1[/explore]
+        A2[/chat/slug]
+        A3[/register]
     end
 
     subgraph Owner["👤 Owner"]
-        O1["/owner/docs"]
-        O2["/owner/billing"]
-        O3["/owner/prompts"]
-        O4["/owner/tokens"]
-        O5["Own profile only — slug locked to session"]
+        O1[/owner/docs]
+        O2[/owner/billing]
+        O3[/owner/prompts]
+        O4[/owner/tokens]
+        O5["Own profile only\nslug locked to session"]
     end
 
     subgraph AdminR["🔧 Admin"]
-        AD1["/admin/registry"]
-        AD2["/admin/manage/slug"]
-        AD3["/admin/system"]
-        AD4["All profiles + system — full platform control"]
+        AD1[/admin/registry]
+        AD2[/admin/manage/slug]
+        AD3[/admin/system]
+        AD4["All profiles + system\nfull platform control"]
     end
 ```
 
@@ -623,18 +633,18 @@ graph LR
 
 ```mermaid
 flowchart TD
-    REQ([Incoming request to /admin or /owner]) --> MW[AdminAuth Middleware]
-    MW --> S{Session exists?}
-    S -->|No| LOGIN["Redirect to /login — Google OAuth"]
+    REQ([Incoming request to /admin/* or /owner/*]) --> MW[AdminAuth Middleware]
+    MW --> S{Session\nexists?}
+    S -->|No| LOGIN[Redirect to /login\n→ Google OAuth]
     S -->|Yes| ROLE{User role?}
-    ROLE -->|admin| ADMIN["Allow /admin — Redirect /owner to /admin"]
-    ROLE -->|owner| OWNER["Allow /owner — slug locked to session"]
-    ROLE -->|IS_LOCAL=true| BYPASS[Bypass all auth — dev mode only]
-    LOGIN --> GOOGLE["Google OAuth 2.0: openid · email · profile"]
-    GOOGLE --> CB["/auth/callback"]
-    CB --> KNOWN{Known user?}
-    KNOWN -->|Yes| SESSION[Set session — role + slug]
-    KNOWN -->|No| REGISTER["/register — new profile flow"]
+    ROLE -->|admin| ADMIN[Allow /admin/*\nRedirect /owner/* → /admin]
+    ROLE -->|owner| OWNER[Allow /owner/*\nslug locked to session\nRedirect /admin/* → /owner]
+    ROLE -->|IS_LOCAL=true| BYPASS[Bypass all auth\ndev mode only]
+    LOGIN --> GOOGLE[Google OAuth 2.0\nopenid · email · profile]
+    GOOGLE --> CB[/auth/callback]
+    CB --> KNOWN{Known\nuser?}
+    KNOWN -->|Yes| SESSION[Set session\nrole + slug]
+    KNOWN -->|No| REGISTER[/register\nnew profile flow]
 ```
 
 ### Key Security Properties
@@ -695,11 +705,11 @@ sequenceDiagram
 
 ## ☁️ Deployment — HuggingFace Spaces
 
-It is designed to run **for free on HuggingFace Spaces** with persistent storage via HF Datasets.
+MultiProfile AI is designed to run **for free on HuggingFace Spaces** with persistent storage via HF Datasets.
 
 ### The Persistence Challenge
 
-HuggingFace Spaces use ephemeral containers — every restart wipes the filesystem. AI Profile Platform solves this with **automatic sync to a private HF Dataset repository**.
+HuggingFace Spaces use ephemeral containers — every restart wipes the filesystem. MultiProfile AI solves this with **automatic sync to a private HF Dataset repository**.
 
 ```mermaid
 flowchart LR
@@ -780,8 +790,8 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/ai_profile_platform.git
-cd ai_profile_platform
+git clone https://github.com/your-org/multiprofile.git
+cd multiprofile
 
 # 2. Create virtual environment
 python -m venv venv
@@ -944,6 +954,13 @@ Content-Type: application/json
 - [ ] **Multi-language support** — prompts and chat in the visitor's detected language
 - [ ] **Custom domains** — CNAME support for `/chat/{slug}` pages
 - [ ] **Embedding model choice** — swap sentence-transformers for text-embedding-3-small, etc.
+
+### Phase 4 — Enterprise
+
+- [ ] **Team profiles** — one owner, multiple contributors
+- [ ] **White-label** — custom branding per organization
+- [ ] **SSO / SAML** — enterprise identity provider support
+- [ ] **CRM webhooks** — push lead captures to HubSpot, Salesforce
 - [ ] **Rate limiting** — per-profile and platform-wide chat throttling
 
 ---

@@ -83,9 +83,10 @@ class ProfileFileStorage:
     # ── Photo ─────────────────────────────────────────────────────────────────
 
     def save_photo(self, data: bytes) -> Path:
+        self.base.mkdir(parents=True, exist_ok=True)
         self.photo_path.write_bytes(data)
         logger.info("Saved photo for profile '%s' (%d bytes)", self.slug, len(data))
-        hf_sync.push_file(self.photo_path)
+        hf_sync.push_file(self.photo_path, wait=True)  # blocking — must persist before response
         return self.photo_path
 
     def has_photo(self) -> bool:
@@ -99,6 +100,7 @@ class ProfileFileStorage:
         if ext not in ALLOWED_DOC_EXTENSIONS:
             raise ValueError(f"Unsupported file type: {ext}. Allowed: {ALLOWED_DOC_EXTENSIONS}")
         dest = self.docs_dir / filename
+        self.docs_dir.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(data)
         logger.info("Saved document '%s' for profile '%s' (%d bytes)", filename, self.slug, len(data))
         hf_sync.push_file(dest)

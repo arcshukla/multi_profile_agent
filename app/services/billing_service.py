@@ -102,7 +102,9 @@ class BillingService:
         try:
             _QR_DIR.mkdir(parents=True, exist_ok=True)
             img = _qrcode.make(upi_uri)
-            img.save(str(_QR_DIR / f"{invoice_id}.png"))
+            qr_file = _QR_DIR / f"{invoice_id}.png"
+            img.save(str(qr_file))
+            hf_sync.push_file(qr_file)
         except Exception as exc:
             logger.error("QR generation failed for %s: %s", invoice_id, exc)
         return qr_path
