@@ -1,3 +1,4 @@
+
 """
 main.py
 -------
@@ -9,9 +10,9 @@ Push for HF Space:
   git push space master:main --force
 """
 
-import os
 from pathlib import Path
 from typing import Optional
+import json
 
 from fastapi import FastAPI, HTTPException, Query, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -22,7 +23,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse as _RedirectResponse
 
 from app.core.config import settings, STATIC_DIR, TEMPLATES_DIR
-from app.core.logging_config import get_logger
+from app.core.logging_config import get_logger, set_current_session_id
 
 from app.api.profiles  import router as profiles_router
 from app.api.documents import router as documents_router
@@ -34,10 +35,12 @@ from app.api.owner     import router as owner_router
 from app.api.billing   import router as billing_router
 
 from app.services.profile_service      import profile_service
+from app.services.preferences_service  import preferences_service
 from app.services.index_service        import index_service
 from app.services.log_service          import log_service
 from app.services.prompt_service       import prompt_service
-from app.services.llm_prompts_service  import llm_prompts_service
+from app.services.llm_prompts_service      import llm_prompts_service
+from app.services.email_template_service   import email_template_service
 from app.services.token_service        import token_service
 from app.services.user_service         import user_service
 from app.services.billing_service      import billing_service
@@ -54,22 +57,34 @@ app = FastAPI(title="AI Profile Platform", version=settings.APP_VERSION)
 class AdminAuthMiddleware(BaseHTTPMiddleware):
     """
     Guards all /admin/* routes.
-    Bypassed when IS_LOCAL=true (local dev convenience).
-    On Hugging Face / production: remove IS_LOCAL from env to enforce auth.
+    Requires role=admin regardless of environment — IS_LOCAL does not bypass this.
     """
     async def dispatch(self, request: Request, call_next):
-        if not settings.IS_LOCAL and request.url.path.startswith("/admin"):
+        if request.url.path.startswith("/admin"):
             user = request.session.get("user")
             if not user or user.get("role") != "admin":
                 return _RedirectResponse(url="/login", status_code=302)
         return await call_next(request)
 
 
+class ActorContextMiddleware(BaseHTTPMiddleware):
+    """
+    Stamps every log record in this request with the logged-in user's email.
+    Falls back to 'system' for unauthenticated requests.
+    """
+    async def dispatch(self, request: Request, call_next):
+        user = request.session.get("user")
+        if user and user.get("email"):
+            set_current_session_id(user["email"])
+        return await call_next(request)
+
+
 # Middleware is applied in reverse-add order (last added = outermost = runs first).
 # SessionMiddleware must be outermost so it populates request.session before
-# AdminAuthMiddleware tries to read it.
-app.add_middleware(AdminAuthMiddleware)   # inner  — runs second
-app.add_middleware(                       # outer  — runs first, populates session
+# the inner middlewares read it.
+app.add_middleware(AdminAuthMiddleware)      # innermost — runs third
+app.add_middleware(ActorContextMiddleware)   # middle    — runs second (session already populated)
+app.add_middleware(                          # outermost — runs first, populates session
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET_KEY,
     https_only=False,        # set True in production behind HTTPS
@@ -196,20 +211,7 @@ def explore(request: Request, q: str = ""):
     return _r(request, "explore.html", {
         "user":     get_current_user(request),
         "profiles": profiles,
-        "q":        q,
     })
-
-
-@app.get("/register", include_in_schema=False, response_class=HTMLResponse)
-def register_page(request: Request):
-    """Show self-registration form (only accessible after Google OAuth for an unknown user)."""
-    if get_current_user(request):
-        return RedirectResponse(url="/owner/dashboard", status_code=302)
-    pending = request.session.get("pending_registration")
-    if not pending:
-        return RedirectResponse(url="/explore", status_code=302)
-    return _r(request, "auth/register.html", {"pending": pending})
-
 
 @app.post("/register", include_in_schema=False, response_class=HTMLResponse)
 async def register_submit(request: Request, name: str = Form(...)):
@@ -225,8 +227,18 @@ async def register_submit(request: Request, name: str = Form(...)):
     picture = pending.get("picture", "")
     name    = name.strip()
 
-    # 1. Create profile (disabled — admin must approve before it goes live)
-    profile = profile_service.create_profile(CreateProfileRequest(name=name, status="disabled"))
+    # Guard: if this email already has a user record (e.g. double-submit), go straight to dashboard
+    existing = user_service.get_user(email)
+    if existing:
+        logger.warning("register_submit: email %s already registered (slug=%s) — skipping duplicate", email, existing.slug)
+        request.session.pop("pending_registration", None)
+        request.session["user"] = {"email": email, "name": existing.name or name, "role": "owner", "slug": existing.slug}
+        return RedirectResponse(url="/owner/dashboard", status_code=303)
+
+    # 1. Create profile + register owner in one call (disabled — admin must approve)
+    profile = profile_service.create_profile(
+        CreateProfileRequest(name=name, owner_email=email, status="disabled")
+    )
 
     # 2. Import Google profile picture (best-effort, non-critical)
     if picture:
@@ -238,13 +250,10 @@ async def register_submit(request: Request, name: str = Form(...)):
         except Exception:
             pass
 
-    # 3. Register user as owner of the new profile
-    user_service.add_user(email=email, name=name, role="owner", slug=profile.slug)
-
-    # 4. Notify admin
+    # 3. Notify admin
     notifier.notify_new_registration(name=name, email=email, slug=profile.slug)
 
-    # 5. Log in the new owner and clear pending state
+    # 4. Log in the new owner and clear pending state
     request.session.pop("pending_registration", None)
     request.session["user"] = {"email": email, "name": name, "role": "owner", "slug": profile.slug}
     logger.info("New self-registration: %s (%s) → /chat/%s", name, email, profile.slug)
@@ -262,6 +271,7 @@ def admin_registry(request: Request):
     return _r(request, "admin/layout.html", {
         "active_tab": "registry",
         "tab_content_template": "admin/tab_registry.html",
+        "current_user": get_current_user(request),
     })
 
 
@@ -272,23 +282,80 @@ def admin_manage_list(request: Request):
 
 @app.get("/admin/manage/{slug}", include_in_schema=False, response_class=HTMLResponse)
 def admin_manage_profile(request: Request, slug: str):
+    from fastapi.responses import HTMLResponse
+    from fastapi import Depends
+
+    @app.post("/admin/manage/{slug}/preferences", include_in_schema=False, response_class=HTMLResponse)
+    async def admin_update_owner_preferences(
+        request: Request,
+        slug: str,
+        owner_email: str = Form(...),
+        name: str = Form(""),
+        notify_unanswered_email: str = Form(None),
+        current_user: dict = Depends(require_admin),
+    ):
+        # Find current owner user by slug
+        owner_user = user_service.get_user_by_slug(slug)
+        prefs = preferences_service.get(slug)
+        error = None
+        saved = False
+        if not owner_user:
+            error = "Owner user not found for this profile."
+        else:
+            old_email = owner_user.email
+            new_email = owner_email.strip().lower()
+            # Update email if changed
+            if new_email and new_email != old_email:
+                ok, err = user_service.update_email(old_email, new_email)
+                if not ok:
+                    error = err
+            # Update name
+            if not error:
+                ok, err = user_service.update_name(new_email, name.strip())
+                if not ok:
+                    error = err
+            # Update preferences
+            if not error:
+                prefs = {
+                    "notify_unanswered_email": notify_unanswered_email == "on",
+                }
+                preferences_service.save(slug, prefs)
+                saved = True
+                # Re-fetch owner_user for re-render (slug unchanged after email update)
+                owner_user = user_service.get_user_by_slug(slug)
+
+        # Re-render only the preferences form partial for HTMX swap
+        return _r(request, "admin/partials/owner_prefs_form.html", {
+            "profile": profile_service.get_profile(slug),
+            "owner_user": owner_user,
+            "prefs": prefs,
+            "owner_prefs_saved": saved,
+            "owner_prefs_error": error,
+        })
     profile = profile_service.get_profile(slug)
     if not profile:
         raise HTTPException(status_code=404, detail=f"Profile '{slug}' not found")
 
     fs = ProfileFileStorage(slug)
     prompts, is_default = prompt_service.get_prompts(slug)
+    owner_user = user_service.get_user_by_slug(slug)
+    prefs = preferences_service.get(slug)
 
     return _r(request, "admin/layout.html", {
         "active_tab":         "manage",
         "profile":            profile,
-        "header_html":        fs.read_header(),
+        "slides_data":        fs.read_slides(),
         "profile_css":        fs.read_css(),
         "prompts":            prompts,
         "prompts_is_default": is_default,
         "billing_entry":      billing_service.get_entry(slug),
         "billing_status":     billing_service.get_status(slug),
         "tab_content_template": "admin/tab_manage.html",
+        "current_user": get_current_user(request),
+        "owner_user":         owner_user,
+        "prefs":              prefs,
+        "owner_prefs_saved":  False,
+        "owner_prefs_error":  None,
     })
 
 
@@ -297,6 +364,7 @@ def admin_system(request: Request):
     return _r(request, "admin/layout.html", {
         "active_tab": "system",
         "tab_content_template": "admin/tab_system.html",
+        "current_user": get_current_user(request),
     })
 
 
@@ -323,30 +391,55 @@ def htmx_profiles_table(
 async def htmx_create_profile(
     request: Request,
     name: str = Form(...),
+    owner_email: str = Form(...),
     status: str = Form("enabled"),
 ):
     from app.models.profile_models import CreateProfileRequest
-    from fastapi.responses import Response
+    import json as _json
+    error_msg = None
     try:
-        profile_service.create_profile(CreateProfileRequest(name=name, status=status))
+        profile_service.create_profile(
+            CreateProfileRequest(name=name, owner_email=owner_email, status=status)
+        )
     except ValueError as e:
-        # Return error via HX-Trigger so it shows as a toast, not raw HTML
-        resp = HTMLResponse(content="", status_code=200)
-        resp.headers["HX-Trigger"] = f'{{"showToast": {{"message": "{e}", "type": "error"}}}}'
-        return resp
+        error_msg = str(e)
 
     profiles = [p for p in profile_service.list_profiles() if p.status != "deleted"]
     response = _r(request, "admin/partials/profiles_table.html", {"profiles": profiles})
-    response.headers["HX-Trigger"] = '{"showToast": {"message": "Profile created!", "type": "success"}}'
+    if error_msg:
+        response.headers["HX-Trigger"] = _json.dumps({"showToast": {"message": error_msg, "type": "error"}})
+    else:
+        response.headers["HX-Trigger"] = _json.dumps({"showToast": {"message": "Profile created!", "type": "success"}})
     return response
 
 
-@app.post("/admin/manage/{slug}/header", include_in_schema=False)
-async def save_header_htmx(slug: str, content: str = Form(...)):
-    """Save header HTML for a profile (called from manage tab form)."""
+@app.post("/admin/manage/{slug}/slides", include_in_schema=False)
+async def save_slides_htmx(request: Request, slug: str):
+    """Save carousel slides for a profile (called from manage tab form)."""
     if not profile_service.profile_exists(slug):
         raise HTTPException(404, "Profile not found")
-    ProfileFileStorage(slug).write_header(content)
+    import html as html_mod
+    form = await request.form()
+    slides = []
+    i = 0
+    while f"type_{i}" in form:
+        slide_type = form.get(f"type_{i}", "standard")
+        if slide_type == "quote":
+            slides.append({
+                "type": "quote",
+                "quote":       form.get(f"quote_{i}", "").strip(),
+                "attribution": form.get(f"attribution_{i}", "").strip(),
+            })
+        else:
+            slides.append({
+                "type":     "standard",
+                "title":    form.get(f"title_{i}", "").strip(),
+                "subtitle": form.get(f"subtitle_{i}", "").strip(),
+                "body":     form.get(f"body_{i}", "").strip(),
+            })
+        i += 1
+    slides = [s for s in slides if any(v for k, v in s.items() if k != "type")][:5]
+    ProfileFileStorage(slug).write_slides({"slides": slides})
     return {"success": True}
 
 
@@ -414,6 +507,69 @@ def htmx_profile_logs(request: Request, slug: str):
 
 
 # ── System sub-tab partials ───────────────────────────────────────────────────
+@app.get("/admin/system/billing", include_in_schema=False, response_class=HTMLResponse)
+def htmx_system_billing(
+    request: Request,
+    name: str = Query("", alias="name"),
+    slug: str = Query("", alias="slug"),
+    plan: str = Query("", alias="plan"),
+    payment_status: str = Query("", alias="payment_status"),
+):
+    billing_path = Path("system/billing.json")
+    billing_data = json.loads(billing_path.read_text(encoding="utf-8")) if billing_path.exists() else {}
+
+    # Collect all plans
+    plans_set = set()
+    for b in billing_data.values():
+        plans_set.add(b.get("tier", ""))
+    plans = sorted([p for p in plans_set if p])
+
+    # Build billing rows
+    billing_rows = []
+    total_received = 0
+    pending_users = 0
+    pending_amount = 0
+
+    # Map slug to name from users.json (single source of truth)
+    slug_to_name = {o.slug: o.name for o in user_service.list_owners()}
+
+    for user_slug, user_data in billing_data.items():
+        user_name = slug_to_name.get(user_slug, user_slug)
+        user_plan = user_data.get("tier", "")
+        for inv in user_data.get("invoices", []):
+            # Filtering
+            if name and name.lower() not in user_name.lower():
+                continue
+            if slug and slug.lower() not in user_slug.lower():
+                continue
+            if plan and plan != user_plan:
+                continue
+            if payment_status and payment_status.lower() != inv.get("status", "").lower():
+                continue
+            billing_rows.append({
+                "name": user_name,
+                "slug": user_slug,
+                "plan": user_plan,
+                "due_date": inv.get("due_date", ""),
+                "amount": inv.get("amount", 0),
+                "payment_status": inv.get("status", "").capitalize(),
+            })
+            if inv.get("status", "").lower() == "paid":
+                total_received += inv.get("amount", 0)
+            else:
+                pending_users += 1
+                pending_amount += inv.get("amount", 0)
+
+    filters = {"name": name, "slug": slug, "plan": plan, "payment_status": payment_status}
+    return _r(request, "admin/partials/system_billing.html", {
+        "billing_rows": billing_rows,
+        "total_received": total_received,
+        "pending_users": pending_users,
+        "pending_amount": pending_amount,
+        "plans": plans,
+        "filters": filters,
+    })
+
 
 @app.get("/admin/system/history", include_in_schema=False, response_class=HTMLResponse)
 def htmx_system_history(request: Request, slug: Optional[str] = None):
@@ -499,6 +655,50 @@ async def htmx_reset_token_usage(slug: str):
     return HTMLResponse('<p class="text-green-600 text-xs">Reset.</p>')
 
 
+# ── Email Templates ───────────────────────────────────────────────────────────
+
+@app.get("/admin/system/email", include_in_schema=False, response_class=HTMLResponse)
+def htmx_system_email(request: Request):
+    return _r(request, "admin/partials/system_email_templates.html", {
+        "templates": email_template_service.get_templates(),
+    })
+
+
+@app.post("/admin/system/email/save/{name}", include_in_schema=False, response_class=HTMLResponse)
+async def htmx_save_email_template(
+    name:      str,
+    subject:   str = Form(...),
+    body_text: str = Form(...),
+    body_html: str = Form(...),
+):
+    ok = email_template_service.update_template(name, subject, body_text, body_html)
+    if not ok:
+        return HTMLResponse(
+            '<span class="text-red-600">Unknown template name.</span>',
+            status_code=400,
+        )
+    return HTMLResponse('<span class="text-green-600 font-medium">Saved.</span>')
+
+
+@app.post("/admin/system/email/restore/{name}", include_in_schema=False, response_class=HTMLResponse)
+def htmx_restore_email_template(request: Request, name: str):
+    email_template_service.restore_defaults(name)
+    templates = email_template_service.get_templates()
+    if name not in templates:
+        return HTMLResponse("", status_code=404)
+    return _r(request, "admin/partials/system_email_templates.html", {
+        "templates": templates,
+    })
+
+
+@app.post("/admin/system/email/restore_all", include_in_schema=False, response_class=HTMLResponse)
+def htmx_restore_all_email_templates(request: Request):
+    email_template_service.restore_defaults()
+    return _r(request, "admin/partials/system_email_templates.html", {
+        "templates": email_template_service.get_templates(),
+    })
+
+
 @app.get("/admin/system/users", include_in_schema=False, response_class=HTMLResponse)
 def htmx_system_users(request: Request):
     users   = user_service.list_users()
@@ -530,50 +730,74 @@ async def htmx_remove_user(email: str):
     user_service.remove_user(email)
     return HTMLResponse("")     # HTMX swaps the row to empty (effectively removes it)
 
+# ── Templates (System Prompts + Email) ──────────────────────────────────────
+@app.get("/admin/system/templates", include_in_schema=False, response_class=HTMLResponse)
+def htmx_system_templates(request: Request):
+    return _r(request, "admin/partials/system_templates.html", {
+        "templates": email_template_service.get_templates(),
+        "prompts": llm_prompts_service.get_prompts(),
+    })
+
+@app.get("/admin/system/users/edit/{email:path}", include_in_schema=False, response_class=HTMLResponse)
+def htmx_user_edit_row(email: str):
+    """Return an inline edit row for the given user (email only — name is managed via owner preferences)."""
+    user = user_service.get_user(email)
+    if not user:
+        return HTMLResponse("", status_code=404)
+    safe_email = email.replace('"', "&quot;").replace("'", "&#39;")
+    html = f"""
+    <tr>
+      <td colspan="6" class="px-4 py-3 bg-indigo-50 border-b border-indigo-100">
+        <form hx-post="/admin/system/users/update"
+              hx-target="#users-container" hx-swap="outerHTML"
+              class="flex items-end gap-3 flex-wrap">
+          <input type="hidden" name="old_email" value="{safe_email}">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Email</label>
+            <input type="email" name="new_email" value="{safe_email}" required
+                   class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 font-mono w-64
+                          focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          </div>
+          <div class="flex gap-2">
+            <button type="submit"
+                    class="px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+              Save
+            </button>
+            <button type="button"
+                    hx-get="/admin/system/users"
+                    hx-target="#users-container" hx-swap="outerHTML"
+                    class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </td>
+    </tr>"""
+    return HTMLResponse(html)
+
+
+@app.post("/admin/system/users/update", include_in_schema=False, response_class=HTMLResponse)
+async def htmx_update_user(
+    request: Request,
+    old_email: str = Form(...),
+    new_email: str = Form(...),
+):
+    ok, error = user_service.update_email(old_email, new_email)
+    users    = user_service.list_users()
+    profiles = [p for p in profile_service.list_profiles() if p.status != "deleted"]
+    return _r(request, "admin/partials/system_users.html", {
+        "users":        users,
+        "profiles":     profiles,
+        "update_error": error if not ok else None,
+    })
+
 
 @app.get("/admin/system/config", include_in_schema=False, response_class=HTMLResponse)
 def htmx_system_config(request: Request):
-    def _mask(val: str) -> str:
-        return "***" if val else "NOT SET"
-
-    config = {
-        # ── Server
-        "APP_VERSION":           settings.APP_VERSION,
-        "HOST":                  settings.HOST,
-        "PORT":                  str(settings.PORT),
-        "DEBUG":                 str(settings.DEBUG),
-        "LOG_LEVEL":             settings.LOG_LEVEL,
-        "IS_HF_SPACE":           str(settings.IS_HF_SPACE),
-        "IS_LOCAL":              str(settings.IS_LOCAL),
-        # ── LLM
-        "AI_MODEL":              settings.AI_MODEL,
-        "OPENROUTER_BASE_URL":   settings.OPENROUTER_BASE_URL,
-        "OPENROUTER_API_KEY":    _mask(settings.OPENROUTER_API_KEY),
-        # ── RAG / indexing
-        "PROFILE_CACHE_MINUTES": str(settings.PROFILE_CACHE_MINUTES),
-        "FORCE_REINGEST":        str(settings.FORCE_REINGEST),
-        "RAG_TOP_K":             str(settings.RAG_TOP_K),
-        "CHUNK_SIZE":            str(settings.CHUNK_SIZE),
-        "CHUNK_OVERLAP":         str(settings.CHUNK_OVERLAP),
-        # ── Authentication
-        "GOOGLE_CLIENT_ID":      _mask(settings.GOOGLE_CLIENT_ID),
-        "GOOGLE_CLIENT_SECRET":  _mask(settings.GOOGLE_CLIENT_SECRET),
-        "SESSION_SECRET_KEY":    _mask(settings.SESSION_SECRET_KEY),
-        "ADMIN_EMAILS":          ", ".join(settings.ADMIN_EMAILS) or "NOT SET",
-        # ── Support / Notifications
-        "SUPPORT_EMAIL":         settings.SUPPORT_EMAIL,
-        "PUSHOVER_USER_KEY":     _mask(settings.PUSHOVER_USER_KEY),
-        "PUSHOVER_API_TOKEN":    _mask(settings.PUSHOVER_API_TOKEN),
-        "PUSHOVER_URL":          settings.PUSHOVER_URL,
-        # ── Paths
-        "PROFILES_DIR":          settings.PROFILES_DIR_STR,
-        "SYSTEM_DIR":            settings.SYSTEM_DIR_STR,
-        "LOGS_DIR":              settings.LOGS_DIR_STR,
-        "BASE_DIR":              settings.BASE_DIR_STR,
-        "TOKEN_LEDGER_FILE":     str(settings.TOKEN_LEDGER_FILE),
-        "BILLING_ARCHIVE_DIR":   str(settings.BILLING_ARCHIVE_DIR),
-    }
-    return _r(request, "admin/partials/system_config.html", {"config": config})
+    return _r(request, "admin/partials/system_config.html", {
+        "rows":     settings.get_config_display(),
+        "is_local": settings.IS_LOCAL,
+    })
 
 
 # ── Admin billing endpoints ───────────────────────────────────────────────────
@@ -701,7 +925,7 @@ def chat_page(request: Request, slug: str):
 
     return _r(request, "chat/chat.html", {
         "profile":         profile,
-        "header_html":     fs.read_header(),
+        "slides_data":     fs.read_slides(),
         "profile_css":     fs.read_css(),
         "welcome_message": welcome,
         "followups":       followups,
@@ -727,13 +951,6 @@ async def startup_event():
 
     # ── Start periodic log sync (HF Spaces only) ──────────────────────────
     hf_sync.start_log_sync_loop(settings.HF_LOG_SYNC_INTERVAL_MINUTES)
-
-    # ── One-time migration: profiles.json root → system/ ──────────────────
-    _old = settings.BASE_DIR_STR and Path(settings.BASE_DIR_STR) / "profiles.json"
-    _new = settings.PROFILES_REGISTRY_FILE
-    if _old and _old.exists() and not _new.exists():
-        _shutil.move(str(_old), str(_new))
-        logger.info("Migrated profiles.json → system/profiles.json")
 
     logger.info("=" * 60)
     logger.info("AI Profile Platform starting up")

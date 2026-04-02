@@ -28,7 +28,7 @@ from app.storage.hf_sync import hf_sync
 from app.core.constants import (
     PROFILE_DOCS_DIR, PROFILE_CHROMADB_DIR, PROFILE_CONFIG_DIR,
     PROFILE_PHOTO_FILE, PROFILE_PROMPTS_FILE, PROFILE_HEADER_FILE,
-    PROFILE_CSS_FILE, PROFILE_JS_FILE, ALLOWED_DOC_EXTENSIONS,
+    PROFILE_SLIDES_FILE, PROFILE_CSS_FILE, PROFILE_JS_FILE, ALLOWED_DOC_EXTENSIONS,
 )
 from app.core.logging_config import get_logger
 
@@ -52,13 +52,18 @@ class ProfileFileStorage:
         self.photo_path  = self.base / PROFILE_PHOTO_FILE
         self.prompts_path = self.base / PROFILE_PROMPTS_FILE
         self.header_path  = self.base / PROFILE_HEADER_FILE
+        self.slides_path  = self.base / PROFILE_SLIDES_FILE
         self.css_path     = self.base / PROFILE_CSS_FILE
         self.js_path      = self.base / PROFILE_JS_FILE
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     def create_directories(self) -> None:
-        """Create all required subdirectories for a new profile."""
+        """Create all required subdirectories for a new profile.
+        Removes any stale directory first so old files cannot survive a hard-delete + recreate."""
+        if self.base.exists():
+            shutil.rmtree(self.base)
+            logger.warning("Removed stale directory for '%s' before creation", self.slug)
         for d in [self.docs_dir, self.chroma_dir, self.config_dir]:
             d.mkdir(parents=True, exist_ok=True)
         logger.info("Created directory structure for profile '%s' at %s", self.slug, self.base)
@@ -69,7 +74,7 @@ class ProfileFileStorage:
             try:
                 shutil.rmtree(self.base)
                 logger.info("Deleted profile folder: %s", self.base)
-                hf_sync.delete_dir(self.slug)
+                hf_sync.delete_dir(self.slug, wait=True)  # blocking — must finish before a same-slug recreate
                 return True
             except OSError as e:
                 logger.error("Failed to delete profile folder %s: %s", self.base, e, exc_info=True)
@@ -156,6 +161,32 @@ class ProfileFileStorage:
 
     def write_header(self, html: str) -> None:
         self.write_text(self.header_path, html)
+
+    # Default slides shown for new profiles or any profile without slides.json
+    _DEFAULT_SLIDES: dict = {
+        "slides": [
+            {"type": "standard", "title": "AI-powered professional avatar", "subtitle": "",
+             "body": "Ask me anything about career journey, experience, leadership, and expertise."},
+            {"type": "standard", "title": "Explore professional story", "subtitle": "",
+             "body": "Platforms built · Teams led · Problems solved · Impact delivered."},
+        ]
+    }
+
+    def read_slides(self) -> dict:
+        """Return slides dict from slides.json; returns default if not set."""
+        raw = self.read_text(self.slides_path, default=None)
+        if raw is None:
+            return dict(self._DEFAULT_SLIDES)
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict) and "slides" in data:
+                return data
+        except Exception:
+            pass
+        return dict(self._DEFAULT_SLIDES)
+
+    def write_slides(self, data: dict) -> None:
+        self.write_text(self.slides_path, json.dumps(data, ensure_ascii=False, indent=2))
 
     def read_css(self) -> str:
         """Return profile CSS, falling back to the default stylesheet."""

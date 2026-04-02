@@ -13,11 +13,9 @@ PROFILE_CONFIG_DIR   = "config"
 PROFILE_PHOTO_FILE   = "photo.jpg"
 PROFILE_PROMPTS_FILE = "config/prompts.py"
 PROFILE_HEADER_FILE  = "config/header.html"
+PROFILE_SLIDES_FILE  = "config/slides.json"
 PROFILE_CSS_FILE     = "config/profile.css"
 PROFILE_JS_FILE      = "config/profile.js"
-
-# ── Registry ─────────────────────────────────────────────────────────────────
-REGISTRY_FILE = "profiles.json"
 
 # ── Allowed document extensions for upload ───────────────────────────────────
 ALLOWED_DOC_EXTENSIONS = {".pdf", ".txt", ".csv", ".doc", ".docx", ".md"}

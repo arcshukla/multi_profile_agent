@@ -80,64 +80,19 @@
     </p>
   </div>
 
-  <!-- ── LLM Prompts ──────────────────────────────────────────────────────── -->
-  <div>
-    <div class="flex items-center justify-between mb-3">
-      <div>
-        <h2 class="text-sm font-semibold text-gray-700">RAG Engine Prompts</h2>
-        <p class="text-xs text-gray-400 mt-0.5">
-          Edit the text freely. Do <strong>not</strong> remove
-          <code class="bg-gray-100 px-1 rounded">{placeholder}</code> variables — the engine requires them.
-        </p>
-      </div>
-      <button
-        hx-post="/admin/system/llm/prompt/restore"
-        hx-target="#llm-prompts-container"
-        hx-swap="outerHTML"
-        hx-confirm="Restore all LLM prompts to built-in defaults?"
-        class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 transition-colors">
-        Restore Defaults
-      </button>
-    </div>
+  
+  
+  
 
-    <div id="llm-prompts-container" class="space-y-6">
-      {% for key, prompt in prompts.items() %}
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-medium text-gray-800">{{ prompt.name }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ prompt.description }}</p>
-          </div>
-          <span class="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-1 rounded flex-shrink-0">{{ key }}</span>
-        </div>
-        <form
-          hx-post="/admin/system/llm/prompt/{{ key }}"
-          hx-target="#save-status-{{ key }}"
-          hx-swap="innerHTML"
-          class="p-4 space-y-3">
-          <textarea
-            name="content"
-            rows="14"
-            class="w-full font-mono text-xs border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50 leading-relaxed"
-          >{{ prompt.content }}</textarea>
-          <div class="flex items-center gap-3">
-            <button type="submit"
-              class="px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-              Save
-            </button>
-            <span id="save-status-{{ key }}" class="text-xs text-gray-400"></span>
-          </div>
-        </form>
-      </div>
-      {% endfor %}
-    </div>
-
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4">
-      <p class="text-sm text-amber-800">
-        <strong>Note:</strong> Prompt changes take effect for newly indexed documents and new chat sessions.
-        Re-index a profile after changing the <em>Document Split Prompt</em> to rebuild its chunks.
-      </p>
-    </div>
   </div>
 
 </div>
+
+<script>
+function toggleAccordion(header) {
+  const body    = header.nextElementSibling;
+  const chevron = header.querySelector('.acc-chevron');
+  body.classList.toggle('hidden');
+  chevron.classList.toggle('rotate-180');
+}
+</script>

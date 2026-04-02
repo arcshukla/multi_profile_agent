@@ -1,0 +1,61 @@
+<!-- System Prompts partial (moved from LLM/Prompts) -->
+<div class="p-5">
+  <div class="mb-4 p-3 rounded border border-amber-200 bg-amber-50 text-amber-900 text-xs">
+    <strong>Note:</strong> Prompt changes take effect for newly indexed documents and new chat sessions. Re-index a profile after changing the <em>Document Split Prompt</em> to rebuild its chunks.
+  </div>
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h2 class="text-sm font-semibold text-gray-700">RAG Engine Prompts</h2>
+      <p class="text-xs text-gray-400 mt-0.5">
+        Edit the text freely. Do <strong>not</strong> remove
+        <code class="bg-gray-100 px-1 rounded">{placeholder}</code> variables — the engine requires them.
+      </p>
+    </div>
+    <button
+      hx-post="/admin/system/llm/prompt/restore"
+      hx-target="#llm-prompts-container"
+      hx-swap="outerHTML"
+      hx-confirm="Restore all LLM prompts to built-in defaults?"
+      class="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 transition-colors">
+      Restore Defaults
+    </button>
+  </div>
+  <div id="llm-prompts-container" class="space-y-3">
+    {% for key, prompt in prompts.items() %}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="bg-gray-50 px-5 py-3 flex items-center justify-between gap-4 cursor-pointer select-none" onclick="toggleAccordion(this)">
+        <div class="flex items-center gap-3 min-w-0">
+          <svg class="acc-chevron w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-gray-800">{{ prompt.name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5 truncate">{{ prompt.description }}</p>
+          </div>
+        </div>
+        <span class="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-1 rounded flex-shrink-0">{{ key }}</span>
+      </div>
+      <div class="acc-body hidden border-t border-gray-100">
+        <form
+          hx-post="/admin/system/llm/prompt/{{ key }}"
+          hx-target="#save-status-{{ key }}"
+          hx-swap="innerHTML"
+          class="p-4 space-y-3">
+          <textarea
+            name="content"
+            rows="14"
+            class="w-full font-mono text-xs border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50 leading-relaxed"
+          >{{ prompt.content }}</textarea>
+          <div class="flex items-center gap-3">
+            <button type="submit"
+              class="px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+              Save
+            </button>
+            <span id="save-status-{{ key }}" class="text-xs"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

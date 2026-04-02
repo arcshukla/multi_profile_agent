@@ -1,30 +1,98 @@
 <!-- System: Configuration partial -->
-<div class="space-y-5">
-  <h2 class="text-sm font-semibold text-gray-700">Configuration</h2>
+<div class="space-y-4" id="sys-config-wrap">
 
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 border-b border-gray-100">
-        <tr>
-          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Setting</th>
-          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Value</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100 font-mono text-xs">
-        {% for key, val in config.items() %}
-        <tr class="hover:bg-gray-50">
-          <td class="px-5 py-3 text-gray-500">{{ key }}</td>
-          <td class="px-5 py-3 text-gray-900">{{ val }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <!-- ── Header + filter ──────────────────────────────────────────────────── -->
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h2 class="text-sm font-semibold text-gray-700">Configuration</h2>
+      <p class="text-xs text-gray-400 mt-0.5">
+        {% if is_local %}Reading from <code class="bg-gray-100 px-1 rounded">.env</code>{% else %}Reading from HF Secrets / HF Variables{% endif %}
+      </p>
+    </div>
+    <input
+      type="text"
+      id="cfg-filter"
+      placeholder="Filter settings…"
+      oninput="filterConfig(this.value)"
+      class="w-56 rounded-lg border border-gray-200 px-3 py-1.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+    />
   </div>
 
+  <!-- ── Sections ─────────────────────────────────────────────────────────── -->
+  {% set ns = namespace(current_section=None) %}
+  {% for row in rows %}
+    {% if row.section != ns.current_section %}
+      {% if ns.current_section is not none %}
+        </tbody></table></div></div>
+      {% endif %}
+      {% set ns.current_section = row.section %}
+      <div class="cfg-section space-y-1" data-section="{{ row.section | lower }}">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1 pt-1">
+          {{ row.section }}
+        </h3>
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th class="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide w-1/3">Setting</th>
+                <th class="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Value</th>
+                <th class="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Source</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 font-mono text-xs">
+    {% endif %}
+              <tr class="cfg-row hover:bg-gray-50" data-search="{{ row.label | lower }}">
+                <td class="px-5 py-3 text-gray-500">{{ row.label }}</td>
+                <td class="px-5 py-3 text-gray-900 break-all">{{ row.value }}</td>
+                <td class="px-5 py-3">
+                  {% if row.source == "HF Env" %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">HF Env</span>
+                  {% elif row.source == ".env" %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">.env</span>
+                  {% elif row.source == "Default" %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">Default</span>
+                  {% endif %}
+                </td>
+              </tr>
+  {% endfor %}
+  {% if ns.current_section is not none %}
+    </tbody></table></div></div>
+  {% endif %}
+
+  <!-- ── No-match message (hidden until filter produces zero results) ──────── -->
+  <p id="cfg-no-match" class="hidden text-sm text-gray-400 italic text-center py-4">
+    No settings match your filter.
+  </p>
+
+  <!-- ── Footer note ──────────────────────────────────────────────────────── -->
   <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
     <p class="text-sm text-amber-800">
-      <strong>Note:</strong> Configuration is read from <code class="bg-amber-100 px-1 rounded">.env</code> at startup.
-      Restart the server after changing environment variables.
+      <strong>Note:</strong>
+      {% if is_local %}
+        Configuration is read from <code class="bg-amber-100 px-1 rounded">.env</code> at startup.
+        Restart the server after changing environment variables.
+      {% else %}
+        Secrets and variables are injected by HF Spaces at startup.
+        Update them in your Space settings and restart to apply changes.
+      {% endif %}
     </p>
   </div>
 </div>
+
+<script>
+function filterConfig(q) {
+  q = q.trim().toLowerCase();
+  let anyVisible = false;
+  document.querySelectorAll('#sys-config-wrap .cfg-section').forEach(section => {
+    let sectionHasMatch = false;
+    section.querySelectorAll('.cfg-row').forEach(row => {
+      const match = !q || row.dataset.search.includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) sectionHasMatch = true;
+    });
+    section.style.display = sectionHasMatch ? '' : 'none';
+    if (sectionHasMatch) anyVisible = true;
+  });
+  document.getElementById('cfg-no-match').classList.toggle('hidden', anyVisible || !q);
+}
+</script>

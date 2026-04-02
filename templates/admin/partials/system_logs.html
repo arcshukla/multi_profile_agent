@@ -3,7 +3,9 @@
   <div class="flex flex-wrap items-center gap-3">
     <h2 class="text-sm font-semibold text-gray-700">System Logs</h2>
     <form hx-get="/admin/system/logs" hx-target="#sys-content" hx-swap="innerHTML" class="flex flex-wrap gap-2 ml-auto">
+      <input type="hidden" name="slug" id="log-slug-field" value="{{ slug or '' }}">
       <select name="log_type"
+        onchange="const opt=this.options[this.selectedIndex]; document.getElementById('log-slug-field').value=opt.dataset.slug||''; this.closest('form').requestSubmit();"
         class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
         <option value="app" {% if log_type=="app" %}selected{% endif %}>app.log</option>
         <option value="indexing" {% if log_type=="indexing" %}selected{% endif %}>indexing.log</option>
@@ -15,6 +17,7 @@
       <input name="search" value="{{ search or '' }}" placeholder="Search…"
         class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
       <select name="tail"
+        onchange="this.closest('form').requestSubmit();"
         class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
         <option value="50" {% if tail==50 %}selected{% endif %}>50 lines</option>
         <option value="200" {% if tail==200 %}selected{% endif %}>200 lines</option>
@@ -29,7 +32,7 @@
       <span class="text-xs font-mono text-gray-400">{{ log_type }}{% if slug %} / {{ slug }}{% endif %} — {{ total_lines }} total lines</span>
     </div>
     <div class="overflow-x-auto">
-      <pre class="text-xs text-green-400 font-mono p-4 whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto">{% if lines %}{{ lines | join("\n") }}{% else %}No log entries found.{% endif %}</pre>
+      <pre class="text-xs text-green-400 font-mono p-4 whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto">{% if lines %}{{ lines | join("\n") }}{% elif search %}No lines matching "{{ search }}" found.{% else %}No log entries found for this log type.{% endif %}</pre>
     </div>
   </div>
 </div>

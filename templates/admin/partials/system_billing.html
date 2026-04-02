@@ -1,0 +1,85 @@
+<!-- System: Billing partial -->
+<div class="space-y-8">
+  <!-- Aggregated Data -->
+  <div class="flex flex-wrap gap-6 items-center">
+    <div class="bg-white border border-gray-200 rounded-xl p-4 min-w-[220px] text-center">
+      <p class="text-xs text-gray-500 mb-1">Total Amount Received</p>
+      <p class="text-lg font-bold text-green-600">{{ total_received | default(0) }}</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4 min-w-[220px] text-center">
+      <p class="text-xs text-gray-500 mb-1">Pending Users</p>
+      <p class="text-lg font-bold text-amber-600">{{ pending_users | default(0) }}</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4 min-w-[220px] text-center">
+      <p class="text-xs text-gray-500 mb-1">Total Pending Amount</p>
+      <p class="text-lg font-bold text-red-600">{{ pending_amount | default(0) }}</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form id="billing-filters" class="flex flex-wrap gap-4 items-end mb-2" hx-get="/admin/system/billing" hx-target="#billing-table" hx-swap="outerHTML">
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">Name</label>
+      <input type="text" name="name" value="{{ filters.name | default('') }}" class="border border-gray-200 rounded px-2 py-1 text-sm" />
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">Slug</label>
+      <input type="text" name="slug" value="{{ filters.slug | default('') }}" class="border border-gray-200 rounded px-2 py-1 text-sm" />
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">Plan</label>
+      <select name="plan" class="border border-gray-200 rounded px-2 py-1 text-sm">
+        <option value="">All</option>
+        {% for plan in plans %}
+        <option value="{{ plan }}" {% if filters.plan == plan %}selected{% endif %}>{{ plan }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">Payment Status</label>
+      <select name="payment_status" class="border border-gray-200 rounded px-2 py-1 text-sm">
+        <option value="">All</option>
+        <option value="Paid" {% if filters.payment_status == 'Paid' %}selected{% endif %}>Paid</option>
+        <option value="Pending" {% if filters.payment_status == 'Pending' %}selected{% endif %}>Pending</option>
+        <option value="Overdue" {% if filters.payment_status == 'Overdue' %}selected{% endif %}>Overdue</option>
+      </select>
+    </div>
+    <button type="submit" class="px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Filter</button>
+  </form>
+
+  <!-- Billing Table -->
+  <div id="billing-table">
+    <table class="w-full text-xs border border-gray-200 rounded-xl overflow-hidden">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="px-4 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+          <th class="px-4 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wide">Slug</th>
+          <th class="px-4 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wide">Plan</th>
+          <th class="px-4 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wide">Invoice Due</th>
+          <th class="px-4 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
+          <th class="px-4 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wide">Payment Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in billing_rows %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2.5">{{ row.name }}</td>
+          <td class="px-4 py-2.5">{{ row.slug }}</td>
+          <td class="px-4 py-2.5">{{ row.plan }}</td>
+          <td class="px-4 py-2.5">{{ row.due_date }}</td>
+          <td class="px-4 py-2.5">{{ row.amount }}</td>
+          <td class="px-4 py-2.5">
+            <select class="border border-gray-200 rounded px-2 py-1 text-xs bg-white" hx-post="/admin/system/billing/update_status" hx-vals='{"slug": "{{ row.slug }}", "due_date": "{{ row.due_date }}"}' hx-target="this" hx-swap="outerHTML">
+              <option value="Paid" {% if row.payment_status == 'Paid' %}selected{% endif %}>Paid</option>
+              <option value="Pending" {% if row.payment_status == 'Pending' %}selected{% endif %}>Pending</option>
+              <option value="Overdue" {% if row.payment_status == 'Overdue' %}selected{% endif %}>Overdue</option>
+            </select>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-gray-400 py-8">No billing records found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

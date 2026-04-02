@@ -3,15 +3,20 @@
 
   <!-- ── Registered Users ─────────────────────────────────────────────────── -->
   <div>
-    <div class="flex items-center justify-between mb-3">
-      <div>
-        <h2 class="text-sm font-semibold text-gray-700">Platform Users</h2>
-        <p class="text-xs text-gray-400 mt-0.5">
-          Owners can only access their assigned profile.
-          Admins have full access. Admin emails from <code class="bg-gray-100 px-1 rounded">ADMIN_EMAILS</code> env var don't need a record here.
-        </p>
-      </div>
+    <div class="mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">Platform Users</h2>
+      <p class="text-xs text-gray-400 mt-0.5">
+        Owners can only access their assigned profile.
+        Admins have full access. Admin emails from <code class="bg-gray-100 px-1 rounded">ADMIN_EMAILS</code> env var don't need a record here.
+        To add a new user, create their profile first from the Registry tab.
+      </p>
     </div>
+
+    {% if update_error %}
+    <div class="mb-3 rounded-lg bg-red-50 border border-red-200 px-4 py-2">
+      <p class="text-sm text-red-700">{{ update_error }}</p>
+    </div>
+    {% endif %}
 
     {% if users %}
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -41,14 +46,23 @@
             <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ u.slug or "—" }}</td>
             <td class="px-4 py-3 text-xs text-gray-400">{{ (u.created_at or "")[:10] }}</td>
             <td class="px-4 py-3 text-right">
-              <button
-                hx-post="/admin/system/users/remove/{{ email }}"
-                hx-target="#user-row-{{ loop.index }}"
-                hx-swap="outerHTML"
-                hx-confirm="Remove access for {{ email }}?"
-                class="text-xs text-red-500 hover:text-red-700 hover:underline">
-                Remove
-              </button>
+              <div class="flex items-center justify-end gap-3">
+                <button
+                  hx-get="/admin/system/users/edit/{{ email }}"
+                  hx-target="#user-row-{{ loop.index }}"
+                  hx-swap="outerHTML"
+                  class="text-xs text-indigo-500 hover:text-indigo-700 hover:underline">
+                  Edit
+                </button>
+                <button
+                  hx-post="/admin/system/users/remove/{{ email }}"
+                  hx-target="#user-row-{{ loop.index }}"
+                  hx-swap="outerHTML"
+                  hx-confirm="Remove access for {{ email }}?"
+                  class="text-xs text-red-500 hover:text-red-700 hover:underline">
+                  Remove
+                </button>
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -56,67 +70,7 @@
       </table>
     </div>
     {% else %}
-    <p class="text-sm text-gray-400 italic">No users registered yet. Use the form below to add the first profile owner.</p>
-    {% endif %}
-  </div>
-
-  <!-- ── Add User ──────────────────────────────────────────────────────────── -->
-  <div class="bg-white rounded-xl border border-gray-200 p-5">
-    <h3 class="text-sm font-semibold text-gray-700 mb-4">Add / Update User</h3>
-    <form
-      hx-post="/admin/system/users/add"
-      hx-target="#users-container"
-      hx-swap="outerHTML"
-      class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Google Email *</label>
-        <input
-          type="email" name="email" required placeholder="owner@gmail.com"
-          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
-      </div>
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Display Name *</label>
-        <input
-          type="text" name="name" required placeholder="Jane Doe"
-          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
-      </div>
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Role *</label>
-        <select name="role"
-          onchange="this.form.slug_field.style.display = this.value==='owner' ? '' : 'none'"
-          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300">
-          <option value="owner">Owner (one profile)</option>
-          <option value="admin">Admin (full access)</option>
-        </select>
-      </div>
-
-      <div name="slug_field">
-        <label class="block text-xs font-medium text-gray-600 mb-1">Profile Slug (for owners)</label>
-        <select name="slug"
-          class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300">
-          <option value="">— select profile —</option>
-          {% for p in profiles %}
-          <option value="{{ p.slug }}">{{ p.name }} ({{ p.slug }})</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="sm:col-span-2 flex items-center gap-3">
-        <button type="submit"
-          class="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-          Add User
-        </button>
-        <span id="user-add-status" class="text-xs text-gray-400"></span>
-      </div>
-    </form>
-
-    {% if add_error %}
-    <div class="mt-3 rounded-lg bg-red-50 border border-red-200 px-4 py-2">
-      <p class="text-sm text-red-700">{{ add_error }}</p>
-    </div>
+    <p class="text-sm text-gray-400 italic">No users registered yet.</p>
     {% endif %}
   </div>
 

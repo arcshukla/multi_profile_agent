@@ -1,0 +1,48 @@
+<!-- System: Templates partial -->
+<div class="space-y-8">
+  <!-- Accordion: System Prompts -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-gray-50 px-5 py-3 flex items-center justify-between gap-4 cursor-pointer select-none" onclick="toggleAccordion(this)">
+      <div class="flex items-center gap-3 min-w-0">
+        <svg class="acc-chevron w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-gray-800">System Prompts</p>
+          <p class="text-xs text-gray-400 mt-0.5 truncate">Edit system-level prompts for the RAG engine.</p>
+        </div>
+      </div>
+    </div>
+    <div class="acc-body hidden border-t border-gray-100" id="system-prompts-accordion-body">
+      <!-- System Prompts content will be included here -->
+      {% include "admin/partials/system_llm_prompts.html" %}
+    </div>
+  </div>
+
+  <!-- Accordion: Email Templates -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-gray-50 px-5 py-3 flex items-center justify-between gap-4 cursor-pointer select-none" onclick="toggleAccordion(this)">
+      <div class="flex items-center gap-3 min-w-0">
+        <svg class="acc-chevron w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-gray-800">Email Templates</p>
+          <p class="text-xs text-gray-400 mt-0.5 truncate">Edit subject, plain-text body, and HTML body for each named template.</p>
+        </div>
+      </div>
+    </div>
+    <div class="acc-body hidden border-t border-gray-100" id="email-templates-accordion-body">
+      {% include "admin/partials/system_email_templates.html" %}
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleAccordion(header) {
+  const chevron = header.querySelector('.acc-chevron');
+  const body = header.nextElementSibling;
+  chevron.classList.toggle('rotate-180');
+  body.classList.toggle('hidden');
+}
+</script>

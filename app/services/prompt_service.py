@@ -93,7 +93,7 @@ class PromptService:
         fs = ProfileFileStorage(slug)
         raw = fs.read_prompts_raw()
         if not raw.strip():
-            logger.debug("No custom prompts for '%s' — using defaults", slug)
+            logger.info("No custom prompts for '%s' — using defaults", slug)
             return copy.deepcopy(DEFAULT_PROMPTS), True
 
         parsed = self._parse_prompts_file(raw)

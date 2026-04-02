@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.constants import STATUS_ENABLED
 from app.core.logging_config import get_logger
 from app.models.api_models import ChatRequest, ChatResponse
-from app.models.profile_models import ProfileEntry
+from app.models.user_models import UserEntity
 from app.services.chat_service import chat_service
 from app.services.profile_service import profile_service
 from app.services.prompt_service import prompt_service
@@ -18,8 +18,8 @@ router = APIRouter(prefix="/api/profiles/{slug}/chat", tags=["chat"])
 
 # ── Shared dependency ──────────────────────────────────────────────────────────
 
-def _require_enabled_profile(slug: str) -> ProfileEntry:
-    """FastAPI dependency: resolve slug → enabled ProfileEntry or raise HTTP error."""
+def _require_enabled_profile(slug: str) -> UserEntity:
+    """FastAPI dependency: resolve slug → enabled UserEntity or raise HTTP error."""
     entry = profile_service.get_entry(slug)
     if not entry:
         raise HTTPException(404, f"Profile '{slug}' not found")
@@ -32,7 +32,7 @@ def _require_enabled_profile(slug: str) -> ProfileEntry:
 
 @router.post("", response_model=ChatResponse)
 def chat(slug: str, req: ChatRequest,
-         _entry: ProfileEntry = Depends(_require_enabled_profile)):
+         _entry: UserEntity = Depends(_require_enabled_profile)):
     logger.info("Chat request | slug=%s | len=%d", slug, len(req.message))
     resp = chat_service.chat(
         slug=slug,

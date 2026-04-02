@@ -1,0 +1,65 @@
+<div id="owner-prefs-section-{{ profile.slug }}" class="p-5 space-y-4">
+  <p class="text-sm text-gray-500 ml-1">Manage account settings and notification preferences for this owner.</p>
+  {% if owner_prefs_saved %}
+  <div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-2">
+    <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+    </svg>
+    <p class="text-sm text-green-700 font-medium">Preferences updated.</p>
+  </div>
+  {% elif owner_prefs_error %}
+  <div class="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+    <p class="text-sm text-red-700">{{ owner_prefs_error }}</p>
+  </div>
+  {% endif %}
+  <form
+    hx-post="/admin/manage/{{ profile.slug }}/preferences"
+    hx-target="#owner-prefs-section-{{ profile.slug }}"
+    hx-swap="outerHTML"
+    class="space-y-8">
+    <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+      <div class="px-6 py-4">
+        <h2 class="text-sm font-semibold text-gray-700">Account</h2>
+      </div>
+      <div class="px-6 py-5 space-y-5">
+        <div class="max-w-sm space-y-1.5">
+          <label for="owner_email" class="block text-sm font-medium text-gray-700">Owner Email</label>
+          <input type="email" id="owner_email" name="owner_email" value="{{ owner_user.email if owner_user else '' }}" required
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400" />
+          <p class="text-xs text-gray-400">Changing the email will affect login for this owner. Use with caution.</p>
+        </div>
+        <div class="max-w-sm space-y-1.5">
+          <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+          <input type="text" id="name" name="name" value="{{ owner_user.name if owner_user else '' }}"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400" />
+          <p class="text-xs text-gray-400">This name appears on the profile and in the owner portal.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+      <div class="px-6 py-4">
+        <h2 class="text-sm font-semibold text-gray-700">Notifications</h2>
+      </div>
+      <div class="px-6 py-5">
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" name="notify_unanswered_email" value="on" {% if prefs and prefs.notify_unanswered_email %}checked{% endif %}
+            class="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0" />
+          <div>
+            <span class="text-sm font-medium text-gray-700">
+              Email when a visitor asks a question the owner couldn't answer
+            </span>
+            <p class="text-xs text-gray-400 mt-0.5">
+              Notifications will be sent to <span class="font-mono">{{ owner_user.email if owner_user else '' }}</span>.
+            </p>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div>
+      <button type="submit"
+        class="px-5 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        Save Preferences
+      </button>
+    </div>
+  </form>
+</div>

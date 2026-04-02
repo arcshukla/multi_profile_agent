@@ -11,19 +11,23 @@ An admin visiting /owner/* is served the same view — slug comes from their
 session["slug"] if set, otherwise they are redirected to /admin.
 """
 
+import io
+from datetime import date
 from pathlib import Path
 from fastapi import APIRouter, Request, Form, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from app.core.config import TEMPLATES_DIR, settings
-from app.services.billing_service import billing_service
-from app.core.logging_config import get_logger
-from app.auth.dependencies import get_current_user
-from app.services.profile_service  import profile_service
-from app.services.prompt_service   import prompt_service
-from app.services.index_service    import index_service
-from app.services.token_service    import token_service
+from app.services.billing_service      import billing_service
+from app.core.logging_config           import get_logger
+from app.auth.dependencies             import get_current_user
+from app.services.profile_service     import profile_service
+from app.services.prompt_service      import prompt_service
+from app.services.index_service       import index_service
+from app.services.token_service       import token_service
+from app.services.preferences_service import preferences_service
+from app.services.user_service        import user_service
 from app.core.constants            import (
     ALLOWED_DOC_EXTENSIONS,
     MAX_FILE_SIZE_PDF, MAX_FILE_SIZE_OTHER, MAX_DOCS_PER_PROFILE,
@@ -217,18 +221,40 @@ def appearance_page(request: Request):
         "slug":        slug,
         "has_photo":   has_photo,
         "photo_ts":    photo_ts,
-        "header_html": fs.read_header(),
+        "slides_data": fs.read_slides(),
         "profile_css": fs.read_css(),
     })
 
 
-@router.post("/appearance/header")
-async def save_header(request: Request, content: str = Form(...)):
+@router.post("/appearance/slides")
+async def save_slides(request: Request):
     redir = _auth_redirect(request)
     if redir:
         return redir
-    ProfileFileStorage(_get_owner_slug(request)).write_header(content)
-    return HTMLResponse('<p class="text-green-600 text-sm font-medium">Header saved.</p>')
+    import html as html_mod
+    form = await request.form()
+    slides = []
+    i = 0
+    while f"type_{i}" in form:
+        slide_type = form.get(f"type_{i}", "standard")
+        if slide_type == "quote":
+            slides.append({
+                "type": "quote",
+                "quote":       form.get(f"quote_{i}", "").strip(),
+                "attribution": form.get(f"attribution_{i}", "").strip(),
+            })
+        else:
+            slides.append({
+                "type":     "standard",
+                "title":    form.get(f"title_{i}", "").strip(),
+                "subtitle": form.get(f"subtitle_{i}", "").strip(),
+                "body":     form.get(f"body_{i}", "").strip(),
+            })
+        i += 1
+    # Drop completely empty slides; cap at 5
+    slides = [s for s in slides if any(v for k, v in s.items() if k != "type")][:5]
+    ProfileFileStorage(_get_owner_slug(request)).write_slides({"slides": slides})
+    return HTMLResponse('<p class="text-green-600 text-sm font-medium">Slides saved.</p>')
 
 
 @router.post("/appearance/css")
@@ -351,6 +377,68 @@ def analytics_page(request: Request):
     })
 
 
+# ── Analytics download ────────────────────────────────────────────────────────
+
+@router.get("/analytics/download")
+def analytics_download(request: Request):
+    """Download all chat events as an Excel workbook."""
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+    except ImportError:
+        raise HTTPException(status_code=500, detail="openpyxl is not installed — add it to requirements.txt")
+
+    slug   = _get_owner_slug(request)
+    # Read all events (no display limit) in chronological order for analysis
+    events = list(reversed(ProfileFileStorage(slug).read_chat_events(limit=100_000)))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Chat History"
+
+    header_fill = PatternFill("solid", fgColor="EFF6FF")
+    headers = ["Timestamp (UTC)", "Session ID", "Question", "Answer", "Tokens", "Answered"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+
+    wrap_top = Alignment(wrap_text=True, vertical="top")
+    top      = Alignment(vertical="top")
+
+    for row_idx, e in enumerate(events, 2):
+        ws.cell(row=row_idx, column=1, value=e.get("ts", "")).alignment = top
+        ws.cell(row=row_idx, column=2, value=e.get("session_id", "")).alignment = top
+        ws.cell(row=row_idx, column=3, value=e.get("question", "")).alignment = wrap_top
+        ws.cell(row=row_idx, column=4, value=e.get("answer", "")).alignment = wrap_top
+        ws.cell(row=row_idx, column=5, value=e.get("tokens") or 0).alignment = top
+        ws.cell(row=row_idx, column=6, value="Yes" if e.get("was_answered") else "No").alignment = top
+
+    ws.column_dimensions["A"].width = 24
+    ws.column_dimensions["B"].width = 40
+    ws.column_dimensions["C"].width = 55
+    ws.column_dimensions["D"].width = 70
+    ws.column_dimensions["E"].width = 10
+    ws.column_dimensions["F"].width = 12
+    ws.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"{slug}-chat-history-{date.today().isoformat()}.xlsx"
+    logger.info("Analytics download: slug=%s events=%d file=%s", slug, len(events), filename)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ── AI & Indexing (was: Tokens) ────────────────────────────────────────────────
 
 @router.get("/ai", response_class=HTMLResponse)
@@ -399,3 +487,60 @@ async def owner_force_index(request: Request, background_tasks: BackgroundTasks)
     if not index_service.is_indexing(slug):
         background_tasks.add_task(index_service.force_reindex, slug)
     return RedirectResponse(url="/owner/ai?indexing=1", status_code=303)
+
+
+# ── Preferences ────────────────────────────────────────────────────────────────
+
+@router.get("/preferences", response_class=HTMLResponse)
+def preferences_page(request: Request):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+    slug  = _get_owner_slug(request)
+    user  = get_current_user(request)
+    prefs = preferences_service.get(slug)
+    return _r(request, "owner/preferences.html", {
+        "user":        user,
+        "slug":        slug,
+        "prefs":       prefs,
+        "saved":       False,
+        "error":       None,
+        "active_page": "preferences",
+    })
+
+
+@router.post("/preferences", response_class=HTMLResponse)
+async def preferences_save(
+    request: Request,
+    name:                    str = Form(""),
+    notify_unanswered_email: str = Form(""),   # checkbox: "on" when checked, absent otherwise
+):
+    redir = _auth_redirect(request)
+    if redir:
+        return redir
+    slug  = _get_owner_slug(request)
+    user  = get_current_user(request)
+
+    new_name = name.strip()
+    error    = None
+    if new_name:
+        ok, err = user_service.update_name(user["email"], new_name)
+        if not ok:
+            error = err
+        else:
+            request.session["user"]["name"] = new_name
+
+    prefs = {
+        "notify_unanswered_email": notify_unanswered_email == "on",
+    }
+    if error is None:
+        preferences_service.save(slug, prefs)
+
+    return _r(request, "owner/preferences.html", {
+        "user":        get_current_user(request),
+        "slug":        slug,
+        "prefs":       prefs,
+        "saved":       error is None,
+        "error":       error,
+        "active_page": "preferences",
+    })

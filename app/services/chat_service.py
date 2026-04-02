@@ -32,6 +32,11 @@ from app.services.prompt_service import prompt_service
 from app.rag.llm_client import LLMClient
 from app.storage.file_storage import ProfileFileStorage
 from app.utils.notifier import notifier
+from app.services.preferences_service import preferences_service
+from app.services.user_service import user_service
+from app.utils.sendgrid_service import sendgrid_service
+from app.services.email_template_service import email_template_service
+from app.core.config import settings as _settings
 
 logger   = get_logger(__name__)
 chat_log = get_chat_logger()
@@ -225,7 +230,7 @@ class ChatService:
         """Generate opening followup questions shown when the chat UI loads."""
         engine = index_service.get_engine(slug)
         if not engine or engine.chunk_count() == 0:
-            logger.debug("get_initial_followups: no index for '%s' — using fallbacks", slug)
+            logger.info("get_initial_followups: no index for '%s' — using fallbacks", slug)
             return prompt_service.fallback_followups()
 
         snapshot = engine.build_snapshot()
@@ -351,6 +356,37 @@ class ChatService:
             plog.info("Unknown question logged | question=%s", question)
             chat_log.info("UNKNOWN | slug=%s | question=%s", slug, question)
             notifier.notify_unknown(question=question, session_id=session_id)
+            # Per-owner email notification (fires only if owner opted in via preferences)            
+            if preferences_service.get(slug).get("notify_unanswered_email"):
+                owner = user_service.get_user_by_slug(slug)
+                if owner:
+                    owner_email = owner.email
+                    owner_name  = owner.name or owner_email
+                    app_url     = _settings.APP_URL.rstrip("/")
+                    vars_ = {
+                        "owner_name": owner_name,
+                        "question":   question,
+                        "session_id": session_id,
+                        "slug":       slug,
+                        "chat_url":   f"{app_url}/chat/{slug}",
+                        "owner_url":  f"{app_url}/owner/preferences",
+                    }
+                    tmpl = email_template_service.get("unanswered_question")
+                    logger.warning(
+                        "OWNER_NOTIFY_UNANSWERED | slug=%s | owner=%s | question=%s",
+                        slug, owner_email, question,
+                    )
+                    sendgrid_service.send(
+                        to_email  = owner_email,
+                        subject   = tmpl["subject"].format(**vars_),
+                        body_text = tmpl["body_text"].format(**vars_),
+                        body_html = tmpl["body_html"].format(**vars_),
+                    )
+                else:
+                    logger.warning(
+                        "OWNER_NOTIFY_UNANSWERED | slug=%s | no owner record found — email NOT sent",
+                        slug,
+                    )
             return {"status": "unknown recorded"}
 
         logger.warning("Unrecognised tool called: '%s' — ignoring", name)

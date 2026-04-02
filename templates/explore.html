@@ -60,7 +60,7 @@
   </nav>
 
   <!-- ── Hero + search ───────────────────────────────────────────────────── -->
-  <div class="bg-white border-b border-gray-100 px-6 py-10 text-center">
+  <div class="bg-white border-b border-gray-100 px-6 py-6 text-center">
     <h1 class="text-2xl font-bold text-gray-900 mb-1">Browse AI Profiles</h1>
     <p class="text-sm text-gray-500 mb-6">Chat with someone's AI avatar — ask anything about their journey.</p>
     <form action="/explore" method="get" class="flex items-center justify-center gap-2 max-w-md mx-auto">
@@ -88,50 +88,50 @@
   </div>
 
   <!-- ── Profile grid ────────────────────────────────────────────────────── -->
-  <main class="flex-1 max-w-5xl mx-auto w-full px-6 py-8">
+  <main class="flex-1 max-w-5xl mx-auto w-full px-6 py-4">
 
     {% if profiles %}
-    <p class="text-xs text-gray-400 mb-5">
+    <p class="text-xs text-gray-400 mb-3 text-center">
       {{ profiles | length }} profile{{ "s" if profiles | length != 1 else "" }}
       {% if q %} matching "<strong class="text-gray-600">{{ q }}</strong>"{% endif %}
     </p>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+    <div class="flex flex-wrap justify-center gap-4">
       {% for profile in profiles %}
       {% set colors = ["bg-indigo-500","bg-emerald-500","bg-violet-500","bg-amber-500","bg-sky-500","bg-rose-500"] %}
       {% set color = colors[loop.index0 % colors|length] %}
-      <div class="bg-white rounded-2xl border border-gray-200 hover:border-indigo-300 hover:shadow-md
-                  transition-all p-6 flex flex-col items-center text-center gap-3">
+      <div class="bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md
+                  transition-all p-4 flex flex-col items-center text-center gap-2 w-40">
 
         <!-- Avatar -->
-        <div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-gray-100">
+        <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-gray-100">
           {% if profile.has_photo %}
           <img src="/api/profiles/{{ profile.slug }}/photo?v={{ profile.photo_ts }}" alt="{{ profile.name }}"
             class="w-full h-full object-cover"
             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-          <div class="avatar-initials {{ color }} w-full h-full hidden">
+          <div class="avatar-initials {{ color }} w-full h-full hidden" style="font-size:1.1rem">
             {{ profile.name[0].upper() }}
           </div>
           {% else %}
-          <div class="avatar-initials {{ color }} w-full h-full">
+          <div class="avatar-initials {{ color }} w-full h-full" style="font-size:1.1rem">
             {{ profile.name[0].upper() }}
           </div>
           {% endif %}
         </div>
 
         <!-- Name + slug -->
-        <div>
-          <p class="font-semibold text-gray-900 text-sm leading-snug">{{ profile.name }}</p>
-          <p class="text-xs text-gray-400 mt-0.5">@{{ profile.slug }}</p>
+        <div class="w-full">
+          <p class="font-semibold text-gray-900 text-xs leading-snug line-clamp-1">{{ profile.name }}</p>
+          <p class="text-xs text-gray-400 mt-0.5 truncate">@{{ profile.slug }}</p>
         </div>
 
         <!-- Chat button -->
         <a href="/chat/{{ profile.slug }}"
-          class="mt-auto w-full inline-flex items-center justify-center gap-1.5 text-sm font-medium
+          class="mt-auto w-full inline-flex items-center justify-center gap-1 text-xs font-medium
                  text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200
-                 hover:border-indigo-300 px-4 py-2 rounded-lg transition-colors">
+                 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors">
           Chat
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
         </a>
@@ -164,9 +164,161 @@
 
   </main>
 
+  <!-- ── Platform feature carousel ─────────────────────────────────────── -->
+  <section class="bg-white border-t border-gray-100 px-6 pt-4 pb-3">
+    <div class="max-w-3xl mx-auto">
+      <p class="text-center text-xs font-semibold text-indigo-500 uppercase tracking-widest mb-0.5">Platform Highlights</p>
+      <h2 class="text-center text-sm font-bold text-gray-700 mb-4">Built for professionals who take their presence seriously</h2>
+
+      <!-- Carousel wrapper -->
+      <div class="relative overflow-hidden" id="feat-carousel">
+        <div id="feat-track" class="flex transition-transform duration-500 ease-in-out">
+
+          <!-- ── Slide 1 · Billing ────────────────────────────────────────── -->
+          <div class="feat-slide min-w-full px-1">
+            <div class="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4 flex gap-4 items-start">
+              <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center">
+                <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <h3 class="text-xs font-bold text-gray-900">Billing &amp; Plans</h3>
+                  <span class="text-xs font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Free by default</span>
+                </div>
+                <p class="text-xs text-gray-600 leading-relaxed mb-2">
+                  Every profile starts free — no credit card, no commitment. UPI-powered payments are wired in; upgrading is an admin decision today so you're never surprised by a bill.
+                </p>
+                <div class="bg-white rounded-lg border border-indigo-100 px-3 py-2">
+                  <p class="text-xs font-semibold text-indigo-600 mb-1">On the roadmap</p>
+                  <ul class="text-xs text-gray-500 space-y-0.5">
+                    <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-indigo-300 flex-shrink-0"></span>Usage-based — per chat, token, or visitor</li>
+                    <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-indigo-300 flex-shrink-0"></span>Pre-paid credits &amp; post-paid monthly invoices</li>
+                    <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-indigo-300 flex-shrink-0"></span>Self-serve upgrades &amp; spend limits</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Slide 2 · Customisation ─────────────────────────────────── -->
+          <div class="feat-slide min-w-full px-1">
+            <div class="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-4 flex gap-4 items-start">
+              <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
+                <svg class="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-xs font-bold text-gray-900 mb-1.5">Deep Customisation</h3>
+                <p class="text-xs text-gray-600 leading-relaxed mb-2">
+                  Your AI, your voice. Custom system prompts, CSS overrides for full branding, and document upload — your AI indexes and cites them in real time.
+                </p>
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">Custom prompts</span>
+                  <span class="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">CSS &amp; appearance</span>
+                  <span class="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">Document indexing</span>
+                  <span class="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">Photo &amp; header</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Slide 3 · Observability ─────────────────────────────────── -->
+          <div class="feat-slide min-w-full px-1">
+            <div class="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-4 flex gap-4 items-start">
+              <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-xs font-bold text-gray-900 mb-1.5">Full Observability</h3>
+                <p class="text-xs text-gray-600 leading-relaxed mb-2">
+                  Token usage per message, every visitor question logged, indexing status always visible. When your AI <em>can't</em> answer, it flags the gap and alerts you automatically.
+                </p>
+                <div class="bg-white rounded-lg border border-emerald-100 px-3 py-2">
+                  <p class="text-xs font-semibold text-emerald-600 mb-1">Intelligent gap alerting</p>
+                  <p class="text-xs text-gray-500 leading-relaxed">
+                    Unanswered questions go to the profile owner today — and soon, directly to your AI to auto-fill knowledge gaps.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /track -->
+      </div><!-- /carousel -->
+
+      <!-- Controls -->
+      <div class="flex items-center justify-center gap-4 mt-3">
+        <button id="feat-prev" onclick="featNav(-1)"
+          class="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center
+                 text-gray-400 hover:text-indigo-600 hover:border-indigo-300 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <div class="flex items-center gap-2" id="feat-dots"></div>
+        <button id="feat-next" onclick="featNav(1)"
+          class="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center
+                 text-gray-400 hover:text-indigo-600 hover:border-indigo-300 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      const track = document.getElementById('feat-track');
+      const dotsEl = document.getElementById('feat-dots');
+      const slides = track.querySelectorAll('.feat-slide');
+      const total = slides.length;
+      let current = 0, timer;
+
+      // Build dots
+      slides.forEach((_, i) => {
+        const d = document.createElement('button');
+        d.className = 'w-2 h-2 rounded-full transition-colors';
+        d.onclick = () => goTo(i);
+        dotsEl.appendChild(d);
+      });
+
+      function updateDots() {
+        dotsEl.querySelectorAll('button').forEach((d, i) => {
+          d.className = 'w-2 h-2 rounded-full transition-colors ' +
+            (i === current ? 'bg-indigo-500' : 'bg-gray-200');
+        });
+      }
+
+      function goTo(n) {
+        current = (n + total) % total;
+        track.style.transform = `translateX(-${current * 100}%)`;
+        updateDots();
+        resetTimer();
+      }
+
+      function resetTimer() {
+        clearInterval(timer);
+        timer = setInterval(() => goTo(current + 1), 5000);
+      }
+
+      window.featNav = (dir) => goTo(current + dir);
+
+      goTo(0);
+    })();
+  </script>
+
   <!-- ── CTA footer strip ────────────────────────────────────────────────── -->
   {% if not user %}
-  <div class="bg-indigo-600 px-6 py-6 text-center">
+  <div class="bg-indigo-600 px-6 py-4 text-center">
     <p class="text-white font-semibold text-sm mb-1">Want your own AI profile?</p>
     <p class="text-indigo-200 text-xs mb-4">Sign in with Google and have your profile ready in under a minute.</p>
     <a href="/auth/google"

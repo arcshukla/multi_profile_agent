@@ -28,14 +28,61 @@
     });
 
     function showToast(message, type = 'success') {
+      const isError = type === 'error';
       const toast = document.createElement('div');
-      const colors = type === 'error'
-        ? 'bg-red-600 text-white'
-        : 'bg-green-600 text-white';
-      toast.className = `fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium fade-in ${colors}`;
-      toast.textContent = message;
+
+      // Positioning + shape
+      toast.style.cssText = [
+        'position:fixed',
+        'top:1.5rem',
+        'left:50%',
+        'transform:translateX(-50%) translateY(-8px)',
+        'z-index:9999',
+        'max-width:28rem',
+        'width:calc(100% - 2rem)',
+        'display:flex',
+        'align-items:flex-start',
+        'gap:0.625rem',
+        'padding:0.875rem 1rem',
+        'border-radius:0.75rem',
+        'box-shadow:0 8px 24px rgba(0,0,0,0.12)',
+        'font-size:0.875rem',
+        'font-weight:500',
+        'line-height:1.4',
+        'opacity:0',
+        'transition:opacity 0.2s ease, transform 0.2s ease',
+        isError
+          ? 'background:#fef2f2;border:1px solid #fecaca;color:#991b1b'
+          : 'background:#f0fdf4;border:1px solid #bbf7d0;color:#166534',
+      ].join(';');
+
+      // Icon
+      const icon = document.createElement('span');
+      icon.style.cssText = `flex-shrink:0;font-weight:700;font-size:1rem;line-height:1.4;color:${isError ? '#dc2626' : '#16a34a'}`;
+      icon.textContent = isError ? '✕' : '✓';
+
+      // Message
+      const text = document.createElement('span');
+      text.style.cssText = 'flex:1;word-break:break-word';
+      text.textContent = message;
+
+      toast.appendChild(icon);
+      toast.appendChild(text);
       document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3500);
+
+      // Animate in
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+      });
+
+      // Animate out then remove
+      const duration = isError ? 5000 : 3500;
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(-8px)';
+        setTimeout(() => toast.remove(), 200);
+      }, duration);
     }
 
     // Listen for custom toast events from HTMX responses

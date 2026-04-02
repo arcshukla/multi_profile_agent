@@ -179,9 +179,39 @@
     <div class="flex-1 flex flex-col px-6 pt-5 pb-6 gap-4">
 
       <!-- Carousel card — same width as chat box below -->
-      {% if header_html %}
+      {% if slides_data and slides_data.slides %}
       <div class="rounded-xl overflow-hidden px-5 py-4" style="background: var(--color-carousel-bg);">
-        {{ header_html | safe }}
+        <div class="arc-wrap">
+          <div class="arc-overflow">
+            <div class="arc-slides" id="arc-slides">
+              {% for s in slides_data.slides %}
+              <div class="arc-slide">
+                {% if s.type == "quote" %}
+                  {% if s.quote %}<p class="arc-quote">{{ s.quote }}</p>{% endif %}
+                  {% if s.attribution %}<p class="arc-attr">{{ s.attribution }}</p>{% endif %}
+                {% else %}
+                  {% if s.title %}<p class="arc-title">{{ s.title }}</p>{% endif %}
+                  {% if s.subtitle %}<p class="arc-creds">{{ s.subtitle }}</p>{% endif %}
+                  {% if s.body %}<p class="arc-body arc-body-spaced">{{ s.body }}</p>{% endif %}
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="arc-nav">
+            <button class="arc-btn" id="arc-prev">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M8 2L4 6L8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <div class="arc-dots" id="arc-dots"></div>
+            <button class="arc-btn" id="arc-next">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
       {% endif %}
 
@@ -242,12 +272,21 @@
             oninput="updateCharCount(this)"
             class="input-chat flex-1 text-sm rounded-full px-4 py-2.5 bg-white"
           />
+          <!-- Mic button for voice input -->
+          <button id="mic-btn" type="button" title="Speak" class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-gray-300 bg-white hover:bg-gray-100 mr-1" onclick="toggleMic()">
+            <svg id="mic-icon" class="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v2m0 0c-3.314 0-6-2.686-6-6h2a4 4 0 008 0h2c0 3.314-2.686 6-6 6zm0-16a4 4 0 00-4 4v4a4 4 0 008 0V6a4 4 0 00-4-4z" />
+            </svg>
+          </button>
           <button id="send-btn" onclick="sendMessage()"
             class="btn-send w-10 h-10 rounded-full flex items-center justify-center shrink-0">
             <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
             </svg>
           </button>
+        </div>
+        <!-- Voice input warning/feedback -->
+        <div id="voice-warning" class="text-xs text-red-500 mt-2 hidden"></div>
         </div>
       </div>
 
@@ -260,9 +299,137 @@
 </body>
 
 <script>
+
 const SLUG = "{{ profile.slug }}";
 let history = [];
 let sessionId = "";
+
+// Voice recognition state
+let recognition = null;
+let recognizing = false;
+
+function toggleMic() {
+  const micBtn = document.getElementById('mic-btn');
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    showVoiceWarning('Voice input not supported in this browser.');
+    micBtn.disabled = true;
+    return;
+  }
+  if (recognizing) {
+    stopRecognition();
+  } else {
+    startRecognition();
+  }
+}
+
+function startRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showVoiceWarning('Voice input not supported in this browser.');
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.continuous = false; // Stop after user stops speaking
+
+  // Stop recognition when user stops speaking
+  recognition.onspeechend = function() {
+    recognition.stop();
+  };
+
+  recognition.onstart = function() {
+    recognizing = true;
+    setMicActive(true);
+    showVoiceWarning('Listening... Speak now.', 'info');
+    document.getElementById('mic-btn').disabled = false;
+  };
+  recognition.onresult = function(event) {
+    if (event.results.length > 0) {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById('chat-input').value = transcript;
+      updateCharCount(document.getElementById('chat-input'));
+      showVoiceWarning('Voice captured. You can edit before sending.', 'success');
+    }
+    stopRecognition();
+  };
+  recognition.onerror = function(event) {
+    let msg = 'Voice input error.';
+    let action = '';
+    const micBtn = document.getElementById('mic-btn');
+    if (event.error === 'not-allowed' || event.error === 'denied') {
+      msg = 'Microphone access denied. Please enable mic permissions in your browser settings.';
+      micBtn.disabled = true;
+      action = 'action needed';
+    } else if (event.error === 'no-speech') {
+      msg = 'No speech detected. Try again.';
+      micBtn.disabled = false;
+      action = 'retry';
+    } else {
+      micBtn.disabled = false;
+    }
+    showVoiceWarning(msg + (action ? ' (' + action + ')' : ''));
+    stopRecognition();
+  };
+  recognition.onend = function() {
+    recognizing = false;
+    setMicActive(false);
+    document.getElementById('mic-btn').disabled = false;
+    // If no result was captured, show info
+    const input = document.getElementById('chat-input');
+    if (!input.value) {
+      showVoiceWarning('No speech detected or input was empty. Try again.');
+    }
+  };
+  recognition.start();
+}
+
+function stopRecognition() {
+  if (recognition) {
+    recognition.stop();
+    recognition = null;
+  }
+  recognizing = false;
+  setMicActive(false);
+}
+
+function setMicActive(active) {
+  const micBtn = document.getElementById('mic-btn');
+  const micIcon = document.getElementById('mic-icon');
+  if (active) {
+    micBtn.classList.add('bg-blue-100', 'border-blue-400');
+    micIcon.classList.add('text-blue-600');
+  } else {
+    micBtn.classList.remove('bg-blue-100', 'border-blue-400');
+    micIcon.classList.remove('text-blue-600');
+  }
+}
+
+function showVoiceWarning(msg, type) {
+  const warn = document.getElementById('voice-warning');
+  warn.textContent = msg;
+  warn.classList.remove('hidden');
+  warn.classList.remove('text-red-500', 'text-green-600', 'text-blue-600');
+  if (type === 'success') warn.classList.add('text-green-600');
+  else if (type === 'info') warn.classList.add('text-blue-600');
+  else warn.classList.add('text-red-500');
+}
+
+// Hide warning on input focus/edit and re-enable mic button
+document.addEventListener('DOMContentLoaded', function() {
+  const input = document.getElementById('chat-input');
+  const micBtn = document.getElementById('mic-btn');
+  input.addEventListener('focus', () => {
+    document.getElementById('voice-warning').classList.add('hidden');
+    micBtn.disabled = false;
+  });
+  input.addEventListener('input', () => {
+    document.getElementById('voice-warning').classList.add('hidden');
+    micBtn.disabled = false;
+  });
+});
 
 function scrollToBottom() {
   const el = document.getElementById("chat-scroll");

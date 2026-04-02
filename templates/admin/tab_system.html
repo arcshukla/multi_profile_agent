@@ -9,7 +9,7 @@
   <!-- Sub-tabs -->
   <div class="border-b border-gray-200">
     <nav class="flex gap-0" id="sys-tabs">
-      {% set stabs = [("history", "Index History"), ("deleted", "Deleted Profiles"), ("logs", "System Logs"), ("llm", "LLM / Prompts"), ("config", "Configuration"), ("users", "Users")] %}
+      {% set stabs = [("history", "Index History"), ("deleted", "Deleted Profiles"), ("logs", "System Logs"), ("llm", "Token Consumption"), ("billing", "Billing"), ("templates", "Templates"), ("config", "Configuration")] %}
       {% for stab_id, stab_label in stabs %}
       <button
         hx-get="/admin/system/{{ stab_id }}"

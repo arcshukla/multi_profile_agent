@@ -13,7 +13,6 @@
         {% for val, label in [
           ("free",             "Free"),
           ("paid_individual",  "Paid Individual (₹" ~ platform_fee|int ~ "/period)"),
-          ("paid_enterprise",  "Paid Enterprise"),
         ] %}
         <option value="{{ val }}" {{ "selected" if billing_entry.tier.value == val else "" }}>{{ label }}</option>
         {% endfor %}

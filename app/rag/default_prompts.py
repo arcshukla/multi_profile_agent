@@ -226,6 +226,10 @@ UNKNOWN_PHRASES: list[str] = [
     "not available in my profile",
     "i don't know",
     "no information",
+    "i'm unable to provide",
+    "i am unable to provide",
+    "i cannot provide",
+    "unable to answer",
 ]
 
 # ── Fallback followups used when LLM generation fails ─────────────────────────

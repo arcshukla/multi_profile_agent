@@ -1,28 +1,30 @@
 """
 user_service.py
 ---------------
-Manages the platform user registry: system/users.json.
+Manages the profile owner registry: system/users.json.
 
-Schema:
+Schema (one entry per profile owner, keyed by login email):
   {
-    "email@example.com": {
-      "role":       "owner" | "admin",
-      "slug":       "profile-slug",   # only for role=owner
+    "owner@example.com": {
+      "slug":       "profile-slug",
       "name":       "Display Name",
-      "created_at": "2026-03-27T10:00:00Z"
+      "status":     "enabled" | "disabled" | "deleted",
+      "created_at": "2026-03-28T10:00:00Z"
     }
   }
 
-Admin users whose emails appear in settings.ADMIN_EMAILS do NOT need
-a record here — they are resolved automatically.  Adding them to the
-file is supported but not required.
+Auth notes:
+  - Everyone in this file is a profile owner (role=owner in session).
+  - Admins are identified solely via settings.ADMIN_EMAILS — no file entry needed.
+  - An admin who also owns a profile will have an entry here (slug is set in their session).
 
-Constraints:
-  - One owner per profile slug.
-  - One profile slug per owner email.
+Crash recovery:
+  - _save() rotates up to DATA_BACKUP_COUNT (default 3) backup files before writing.
+  - _load() automatically falls back to backups if the primary file is corrupt/missing.
 """
 
 import json
+import shutil
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +32,7 @@ from typing import Optional
 
 from app.core.config import settings, SYSTEM_DIR
 from app.core.logging_config import get_logger
+from app.models.user_models import UserEntity
 
 logger = get_logger(__name__)
 
@@ -37,7 +40,7 @@ _USERS_FILE = SYSTEM_DIR / "users.json"
 
 
 class UserService:
-    """Thread-safe CRUD for the platform user registry."""
+    """Thread-safe CRUD for the profile owner registry."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -45,28 +48,66 @@ class UserService:
     # ── Read ──────────────────────────────────────────────────────────────────
 
     def _load(self) -> dict:
-        try:
-            return json.loads(_USERS_FILE.read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            return {}
-        except Exception as e:
-            logger.error("Failed to load users.json: %s", e)
-            return {}
+        """Load users.json, falling back to numbered backups on failure."""
+        max_bak = getattr(settings, "DATA_BACKUP_COUNT", 3)
+        candidates = [_USERS_FILE] + [
+            _USERS_FILE.parent / f"users.bak{i}.json" for i in range(1, max_bak + 1)
+        ]
+        for path in candidates:
+            try:
+                if path.exists():
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    if path != _USERS_FILE:
+                        logger.warning(
+                            "users.json unreadable — loaded from backup: %s", path.name
+                        )
+                    return data
+            except Exception as e:
+                logger.error("Failed to load %s: %s", path.name, e)
+        return {}
 
     def _save(self, data: dict) -> None:
+        """Rotate backups then write. Keeps up to DATA_BACKUP_COUNT backups."""
         from app.storage.hf_sync import hf_sync
+
+        max_bak = getattr(settings, "DATA_BACKUP_COUNT", 3)
+        # Shift existing backups: bak2→bak3, bak1→bak2
+        for i in range(max_bak - 1, 0, -1):
+            src = _USERS_FILE.parent / f"users.bak{i}.json"
+            dst = _USERS_FILE.parent / f"users.bak{i + 1}.json"
+            if src.exists():
+                shutil.copy2(src, dst)
+        # Copy current file to bak1
+        if _USERS_FILE.exists():
+            shutil.copy2(_USERS_FILE, _USERS_FILE.parent / "users.bak1.json")
         _USERS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
         hf_sync.push_file(_USERS_FILE)
 
     def list_users(self) -> dict[str, dict]:
-        """Return all users from users.json (does not include ADMIN_EMAILS env entries)."""
+        """Return raw dict (email → record) for the admin users table."""
         with self._lock:
             return dict(self._load())
 
-    def get_user(self, email: str) -> Optional[dict]:
-        """Return a single user record by email, or None."""
+    def list_owners(self) -> list[UserEntity]:
+        """Return all owner records as UserEntity objects."""
         with self._lock:
-            return self._load().get(email.lower().strip())
+            data = self._load()
+        return [UserEntity(email=email, **rec) for email, rec in data.items()]
+
+    def get_user(self, email: str) -> Optional[UserEntity]:
+        """Return owner record by email, or None."""
+        email = email.lower().strip()
+        with self._lock:
+            rec = self._load().get(email)
+        return UserEntity(email=email, **rec) if rec else None
+
+    def get_user_by_slug(self, slug: str) -> Optional[UserEntity]:
+        """Return owner record by profile slug, or None."""
+        with self._lock:
+            for email, rec in self._load().items():
+                if rec.get("slug") == slug:
+                    return UserEntity(email=email, **rec)
+        return None
 
     # ── Resolve session (called after Google OAuth callback) ──────────────────
 
@@ -75,25 +116,29 @@ class UserService:
         Build the session payload for a newly authenticated Google user.
 
         Lookup order:
-          1. ADMIN_EMAILS env var  → role=admin
-          2. users.json            → role as stored
+          1. ADMIN_EMAILS env var  → role=admin (slug from users.json if they also own a profile)
+          2. users.json            → role=owner
           3. Neither               → None (access denied)
 
         Returns {"email", "name", "role", "slug"} or None.
         """
         email = email.lower().strip()
-
-        # Bootstrap admin via env var (no file entry required)
-        if email in [e.lower() for e in settings.ADMIN_EMAILS]:
-            return {"email": email, "name": google_name, "role": "admin", "slug": None}
-
+        is_admin = email in [e.lower() for e in settings.ADMIN_EMAILS]
         record = self.get_user(email)
+
+        if is_admin:
+            return {
+                "email": email,
+                "name":  (record.name if record else None) or google_name,
+                "role":  "admin",
+                "slug":  record.slug if record else None,
+            }
         if record:
             return {
                 "email": email,
-                "name":  record.get("name") or google_name,
-                "role":  record.get("role", "owner"),
-                "slug":  record.get("slug"),
+                "name":  record.name or google_name,
+                "role":  "owner",
+                "slug":  record.slug,
             }
 
         logger.warning("Login attempt from unregistered email: %s", email)
@@ -105,11 +150,11 @@ class UserService:
         self,
         email: str,
         name: str,
-        role: str,
-        slug: Optional[str] = None,
+        slug: str,
+        status: str = "enabled",
     ) -> tuple[bool, str]:
         """
-        Add or update a user.
+        Add or update a profile owner record.
 
         Returns (success, error_message).
         Enforces: one owner per slug.
@@ -117,33 +162,75 @@ class UserService:
         email = email.lower().strip()
         if not email:
             return False, "Email is required."
-        if role not in ("owner", "admin"):
-            return False, f"Invalid role: {role!r}"
-        if role == "owner" and not slug:
-            return False, "A profile slug is required for the 'owner' role."
+        if not slug:
+            return False, "Slug is required."
 
         with self._lock:
             data = self._load()
-
-            # Check slug uniqueness for owners
-            if role == "owner" and slug:
-                for existing_email, rec in data.items():
-                    if rec.get("slug") == slug and existing_email != email:
-                        return False, f"Profile '{slug}' is already assigned to {existing_email}."
-
+            # Enforce email uniqueness — an email can only own one profile
+            if email in data and data[email].get("slug") != slug:
+                existing_slug = data[email].get("slug")
+                return False, f"'{email}' is already registered as owner of '{existing_slug}'."
+            # Enforce slug uniqueness — a profile can only have one owner
+            for existing_email, rec in data.items():
+                if rec.get("slug") == slug and existing_email != email:
+                    return False, f"Profile '{slug}' is already assigned to {existing_email}."
             data[email] = {
-                "role":       role,
-                "slug":       slug if role == "owner" else None,
+                "slug":       slug,
                 "name":       name,
+                "status":     status,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
             self._save(data)
 
-        logger.info("Added user %s (role=%s, slug=%s)", email, role, slug)
+        logger.info("Added owner %s → slug=%s status=%s", email, slug, status)
         return True, ""
 
+    def update_email(self, old_email: str, new_email: str) -> tuple[bool, str]:
+        """Rename a owner's login email. Slug and name unchanged."""
+        old_email = old_email.lower().strip()
+        new_email = new_email.lower().strip()
+        if not new_email:
+            return False, "Email is required."
+
+        with self._lock:
+            data = self._load()
+            if old_email not in data:
+                return False, f"User '{old_email}' not found."
+            if new_email != old_email and new_email in data:
+                return False, f"Email '{new_email}' is already in use."
+            data[new_email] = data.pop(old_email)
+            self._save(data)
+
+        logger.info("Updated email %s → %s", old_email, new_email)
+        return True, ""
+
+    def update_name(self, email: str, name: str) -> tuple[bool, str]:
+        """Update a owner's display name."""
+        email = email.lower().strip()
+        with self._lock:
+            data = self._load()
+            if email not in data:
+                return False, f"User '{email}' not found."
+            data[email]["name"] = name
+            self._save(data)
+        logger.info("Updated name for %s → %s", email, name)
+        return True, ""
+
+    def update_status(self, slug: str, status: str) -> tuple[bool, str]:
+        """Update the status of a profile owner record by slug."""
+        with self._lock:
+            data = self._load()
+            for email, rec in data.items():
+                if rec.get("slug") == slug:
+                    rec["status"] = status
+                    self._save(data)
+                    logger.info("Status updated slug=%s → %s", slug, status)
+                    return True, ""
+        return False, f"Profile '{slug}' not found."
+
     def remove_user(self, email: str) -> bool:
-        """Remove a user by email. Returns True if removed, False if not found."""
+        """Remove an owner by email. Returns True if removed."""
         email = email.lower().strip()
         with self._lock:
             data = self._load()
@@ -151,9 +238,20 @@ class UserService:
                 return False
             del data[email]
             self._save(data)
-
-        logger.info("Removed user %s", email)
+        logger.info("Removed owner %s", email)
         return True
+
+    def remove_user_by_slug(self, slug: str) -> bool:
+        """Remove an owner by profile slug. Returns True if removed."""
+        with self._lock:
+            data = self._load()
+            for email, rec in list(data.items()):
+                if rec.get("slug") == slug:
+                    del data[email]
+                    self._save(data)
+                    logger.info("Removed owner slug=%s (%s)", slug, email)
+                    return True
+        return False
 
 
 user_service = UserService()

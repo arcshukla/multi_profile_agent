@@ -20,7 +20,6 @@ from pydantic import BaseModel
 class BillingTier(str, Enum):
     FREE             = "free"
     PAID_INDIVIDUAL  = "paid_individual"
-    PAID_ENTERPRISE  = "paid_enterprise"
 
 
 class InvoiceStatus(str, Enum):

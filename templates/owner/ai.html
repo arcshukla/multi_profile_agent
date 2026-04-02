@@ -47,7 +47,7 @@
           <span class="w-2 h-2 rounded-full bg-green-500"></span>Indexed
         </span>
         <span class="text-xs text-gray-400">{{ status.chunk_count or 0 }} chunks
-          {% if status.last_indexed %} · last indexed {{ status.last_indexed[:10] }}{% endif %}
+          {% if status.last_indexed %} · last indexed {{ status.last_indexed[:19] | replace("T", " ") }} UTC{% endif %}
         </span>
         {% elif status and status.status == "running" %}
         <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-sky-700 bg-sky-50 border border-sky-200 px-3 py-1.5 rounded-full">

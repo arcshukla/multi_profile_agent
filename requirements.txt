@@ -36,3 +36,6 @@ huggingface_hub>=0.23.0  # HF Dataset sync for persistent storage on HF Spaces
 
 # Billing / QR code
 qrcode[pil]>=7.4.2     # UPI QR code generation (pulls in Pillow)
+
+# Excel export
+openpyxl>=3.1.0        # Chat history download as .xlsx

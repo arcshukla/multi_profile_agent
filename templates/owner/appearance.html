@@ -59,35 +59,37 @@
     </div>
   </div>
 
-  <!-- ── Header HTML ────────────────────────────────────────────────────────── -->
+  <!-- ── Carousel Slides ──────────────────────────────────────────────────────── -->
+  <style>
+    /* Carousel preview — mirrors chat.html arc-* styles exactly */
+    .arc-wrap     { position:relative; }
+    .arc-overflow { overflow:hidden; }
+    .arc-slides   { display:flex; transition:transform 0.35s ease; }
+    .arc-slide    { min-width:100%; padding:2px 0 6px; }
+    .arc-title    { font-weight:600; font-size:0.9rem; color:#0f172a; margin-bottom:5px; line-height:1.4; }
+    .arc-creds    { font-size:0.78rem; color:#4a5568; margin-bottom:5px; line-height:1.5; }
+    .arc-body     { font-size:0.82rem; color:#334155; line-height:1.6; }
+    .arc-body-spaced { letter-spacing:0.02em; }
+    .arc-quote    { font-style:italic; font-size:0.85rem; color:#1e293b; line-height:1.7; margin-bottom:7px; }
+    .arc-attr     { font-size:0.75rem; color:#64748b; }
+    .arc-nav      { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:10px; }
+    .arc-btn      { width:28px; height:28px; border-radius:50%; border:1px solid #c8d5e0; background:white;
+                    display:flex; align-items:center; justify-content:center; color:#475569; flex-shrink:0; }
+    .arc-dots     { display:flex; gap:6px; align-items:center; }
+    .arc-dot      { width:7px; height:7px; border-radius:50%; background:#b8ccd8;
+                    transition:background 0.2s, transform 0.2s; }
+    .arc-dot.active { background:#4f46e5; transform:scale(1.25); }
+  </style>
   <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
       <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
       </svg>
-      <p class="text-sm font-semibold text-gray-800">Header HTML</p>
-      <span class="ml-auto text-xs text-gray-400">Rendered at the top of your public chat page</span>
+      <p class="text-sm font-semibold text-gray-800">Carousel Slides</p>
+      <span class="ml-auto text-xs text-gray-400">Shown above the chat box · max 5 slides</span>
     </div>
     <div class="p-5 space-y-4">
-      <div class="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-        💡 You can use plain HTML, embed an image with
-        <code class="bg-blue-100 px-1 rounded">&lt;img src="https://…" /&gt;</code>,
-        or keep the built-in carousel structure. The preview below shows exactly how it will look.
-      </div>
-      <form hx-post="/owner/appearance/header" hx-target="#header-status" hx-swap="innerHTML" class="space-y-3">
-        <textarea name="content" id="header-editor" rows="10"
-          oninput="updateHeaderPreview(this.value)"
-          class="w-full font-mono text-xs border border-gray-200 rounded-lg p-3 resize-y
-                 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-gray-50 leading-relaxed"
-        >{{ header_html }}</textarea>
-        <div class="flex items-center gap-3">
-          <button type="submit"
-            class="px-4 py-1.5 text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">
-            Save Header
-          </button>
-          <span id="header-status" class="text-xs text-gray-400"></span>
-        </div>
-      </form>
 
       <!-- Live preview -->
       <div>
@@ -96,16 +98,139 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
           </svg>
-          Live Preview
-          <span class="text-gray-300 ml-1">— with your current styles &amp; carousel</span>
+          Preview (Slide 1)
+          <span class="text-gray-300 ml-1">— updates as you type</span>
         </p>
-        <div class="border border-dashed border-gray-200 rounded-lg overflow-hidden bg-white">
-          <iframe id="header-preview-frame" srcdoc="" class="w-full" style="min-height:140px;border:none;"
-            scrolling="no" onload="autoResizeFrame(this)"></iframe>
+        <div class="rounded-xl px-5 py-4 border border-dashed border-gray-200" style="background:#e8f5f1;">
+          <p id="preview-title" class="arc-title"></p>
+          <p id="preview-creds" class="arc-creds"></p>
+          <p id="preview-body"  class="arc-body arc-body-spaced"></p>
+          <p id="preview-quote" class="arc-quote" style="display:none"></p>
+          <p id="preview-attr"  class="arc-attr"  style="display:none"></p>
+          <div class="arc-nav">
+            <span class="arc-btn"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6L8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+            <div id="preview-dots" class="arc-dots"></div>
+            <span class="arc-btn"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+          </div>
         </div>
       </div>
+
+      <!-- Slides form -->
+      <form id="slides-form" hx-post="/owner/appearance/slides" hx-target="#slides-status" hx-swap="innerHTML">
+        <div id="slides-container" class="space-y-3">
+
+          {% for slide in slides_data.slides %}
+          <div class="slide-row border border-gray-200 rounded-lg p-3 bg-gray-50" data-index="{{ loop.index0 }}">
+            <div class="flex items-center justify-between mb-2.5">
+              <div class="flex items-center gap-3 flex-wrap">
+                <span class="slide-label text-xs font-semibold text-gray-600">Slide {{ loop.index }}</span>
+                <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                  <input type="radio" name="type_{{ loop.index0 }}" value="standard"
+                    {% if slide.type != 'quote' %}checked{% endif %}
+                    onchange="toggleSlideType(this)"> Standard
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                  <input type="radio" name="type_{{ loop.index0 }}" value="quote"
+                    {% if slide.type == 'quote' %}checked{% endif %}
+                    onchange="toggleSlideType(this)"> Quote
+                </label>
+              </div>
+              <button type="button" class="remove-slide-btn text-xs text-red-400 hover:text-red-600 transition-colors"
+                onclick="removeSlide(this)">Remove</button>
+            </div>
+            <div class="standard-fields space-y-2 {% if slide.type == 'quote' %}hidden{% endif %}">
+              <input type="text" name="title_{{ loop.index0 }}" value="{{ slide.title or '' }}"
+                placeholder="Title — e.g. 25 years building at enterprise scale."
+                oninput="updateSlidePreview()"
+                class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                       focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+              <input type="text" name="subtitle_{{ loop.index0 }}" value="{{ slide.subtitle or '' }}"
+                placeholder="Credentials / metrics (optional)"
+                oninput="updateSlidePreview()"
+                class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                       focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+              <input type="text" name="body_{{ loop.index0 }}" value="{{ slide.body or '' }}"
+                placeholder="Supporting sentence (optional)"
+                oninput="updateSlidePreview()"
+                class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                       focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+            </div>
+            <div class="quote-fields space-y-2 {% if slide.type != 'quote' %}hidden{% endif %}">
+              <textarea name="quote_{{ loop.index0 }}" rows="2"
+                placeholder="Quote text — e.g. Archana is a solid and trustable leader…"
+                oninput="updateSlidePreview()"
+                class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                       focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none">{{ slide.quote or '' }}</textarea>
+              <input type="text" name="attribution_{{ loop.index0 }}" value="{{ slide.attribution or '' }}"
+                placeholder="Attribution — e.g. — Colleague, Instart Technologies"
+                oninput="updateSlidePreview()"
+                class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                       focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+            </div>
+          </div>
+          {% endfor %}
+
+        </div>
+
+        <div class="flex items-center gap-3 mt-4">
+          <button type="button" id="add-slide-btn" onclick="addSlide()"
+            class="text-xs font-medium text-indigo-600 border border-indigo-200 bg-indigo-50
+                   hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
+            + Add Slide
+          </button>
+          <button type="submit"
+            class="text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 px-4 py-1.5 rounded-lg transition-colors">
+            Save Slides
+          </button>
+          <span id="slides-status" class="text-xs text-gray-400"></span>
+        </div>
+      </form>
+
     </div>
   </div>
+
+  <!-- Template for JS-added slides (SLIDE_IDX replaced at runtime) -->
+  <template id="slide-row-template">
+    <div class="slide-row border border-gray-200 rounded-lg p-3 bg-gray-50" data-index="SLIDE_IDX">
+      <div class="flex items-center justify-between mb-2.5">
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="slide-label text-xs font-semibold text-gray-600">Slide ?</span>
+          <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+            <input type="radio" name="type_SLIDE_IDX" value="standard" checked onchange="toggleSlideType(this)"> Standard
+          </label>
+          <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+            <input type="radio" name="type_SLIDE_IDX" value="quote" onchange="toggleSlideType(this)"> Quote
+          </label>
+        </div>
+        <button type="button" class="remove-slide-btn text-xs text-red-400 hover:text-red-600 transition-colors"
+          onclick="removeSlide(this)">Remove</button>
+      </div>
+      <div class="standard-fields space-y-2">
+        <input type="text" name="title_SLIDE_IDX" placeholder="Title"
+          oninput="updateSlidePreview()"
+          class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                 focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+        <input type="text" name="subtitle_SLIDE_IDX" placeholder="Credentials / metrics (optional)"
+          oninput="updateSlidePreview()"
+          class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                 focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+        <input type="text" name="body_SLIDE_IDX" placeholder="Supporting sentence (optional)"
+          oninput="updateSlidePreview()"
+          class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                 focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+      </div>
+      <div class="quote-fields space-y-2 hidden">
+        <textarea name="quote_SLIDE_IDX" rows="2" placeholder="Quote text…"
+          oninput="updateSlidePreview()"
+          class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                 focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none"></textarea>
+        <input type="text" name="attribution_SLIDE_IDX" placeholder="Attribution"
+          oninput="updateSlidePreview()"
+          class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white
+                 focus:outline-none focus:ring-2 focus:ring-violet-300"/>
+      </div>
+    </div>
+  </template>
 
   <!-- ── Color Scheme / CSS ─────────────────────────────────────────────────── -->
   <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -276,7 +401,8 @@ function previewProfilePhoto(input) {
   reader.readAsDataURL(input.files[0]);
 }
 
-// ── Header preview (iframe with full carousel CSS + JS) ───────────────────────
+// ── Slides editor ──────────────────────────────────────────────────────────────
+// (CAROUSEL_CSS kept below for CSS preview doc — do not remove)
 const CAROUSEL_CSS = `
   .arc-wrap     { position:relative; }
   .arc-overflow { overflow:hidden; }
@@ -325,41 +451,100 @@ const CAROUSEL_JS = `
 })();
 `;
 
-function getProfileCss() {
-  const raw = document.getElementById('raw-css-editor');
-  return raw ? raw.value : '';
+function updateSlidePreview() {
+  const firstRow = document.querySelector('.slide-row');
+  const pTitle = document.getElementById('preview-title');
+  const pCreds = document.getElementById('preview-creds');
+  const pBody  = document.getElementById('preview-body');
+  const pQuote = document.getElementById('preview-quote');
+  const pAttr  = document.getElementById('preview-attr');
+
+  function setText(el, val) {
+    el.textContent = val || '';
+    el.style.display = val ? '' : 'none';
+  }
+
+  if (!firstRow) {
+    [pTitle, pCreds, pBody, pQuote, pAttr].forEach(e => { if(e) e.style.display = 'none'; });
+  } else {
+    const typeRadio = firstRow.querySelector('input[type=radio]:checked');
+    const type = typeRadio ? typeRadio.value : 'standard';
+    if (type === 'quote') {
+      [pTitle, pCreds, pBody].forEach(e => { if(e) e.style.display='none'; });
+      setText(pQuote, firstRow.querySelector('textarea[name^="quote_"]')?.value);
+      setText(pAttr,  firstRow.querySelector('input[name^="attribution_"]')?.value);
+    } else {
+      [pQuote, pAttr].forEach(e => { if(e) e.style.display='none'; });
+      setText(pTitle, firstRow.querySelector('input[name^="title_"]')?.value);
+      setText(pCreds, firstRow.querySelector('input[name^="subtitle_"]')?.value);
+      setText(pBody,  firstRow.querySelector('input[name^="body_"]')?.value);
+    }
+  }
+
+  // Sync dot count in preview
+  const count = document.querySelectorAll('.slide-row').length;
+  const dotsEl = document.getElementById('preview-dots');
+  if (dotsEl) {
+    dotsEl.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const d = document.createElement('span');
+      d.className = 'arc-dot' + (i === 0 ? ' active' : '');
+      dotsEl.appendChild(d);
+    }
+  }
 }
 
-function buildPreviewDoc(html) {
-  return `<!DOCTYPE html><html><head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<style>
-  body { margin:0; padding:16px; font-family:sans-serif; box-sizing:border-box; }
-  ${CAROUSEL_CSS}
-  ${getProfileCss()}
-</style>
-</head><body>
-${html}
-<script>${CAROUSEL_JS}<\/script>
-</body></html>`;
+function toggleSlideType(radio) {
+  const row = radio.closest('.slide-row');
+  row.querySelector('.standard-fields').classList.toggle('hidden', radio.value === 'quote');
+  row.querySelector('.quote-fields').classList.toggle('hidden', radio.value !== 'quote');
+  updateSlidePreview();
 }
 
-function updateHeaderPreview(html) {
-  const frame = document.getElementById('header-preview-frame');
-  frame.srcdoc = buildPreviewDoc(html);
+function removeSlide(btn) {
+  if (document.querySelectorAll('.slide-row').length <= 1) return;
+  btn.closest('.slide-row').remove();
+  reindexSlides();
 }
 
-function autoResizeFrame(frame) {
-  try {
-    const h = frame.contentDocument.body.scrollHeight;
-    frame.style.height = Math.max(140, h + 20) + 'px';
-  } catch(e) {}
+function addSlide() {
+  const rows = document.querySelectorAll('.slide-row');
+  if (rows.length >= 5) return;
+  const idx = rows.length;
+  const tmpl = document.getElementById('slide-row-template');
+  const html = tmpl.innerHTML.replace(/SLIDE_IDX/g, idx);
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  document.getElementById('slides-container').appendChild(wrapper.firstElementChild);
+  reindexSlides();
+  updateSlidePreview();
+}
+
+function reindexSlides() {
+  const rows = document.querySelectorAll('.slide-row');
+  rows.forEach((row, i) => {
+    row.dataset.index = i;
+    const label = row.querySelector('.slide-label');
+    if (label) label.textContent = 'Slide ' + (i + 1);
+    row.querySelectorAll('[name]').forEach(el => {
+      el.name = el.name.replace(/_\d+$/, '_' + i);
+    });
+  });
+  const addBtn = document.getElementById('add-slide-btn');
+  if (addBtn) {
+    addBtn.disabled = rows.length >= 5;
+    addBtn.classList.toggle('opacity-40', rows.length >= 5);
+    addBtn.classList.toggle('cursor-not-allowed', rows.length >= 5);
+  }
+  document.querySelectorAll('.remove-slide-btn').forEach(btn => {
+    btn.disabled = rows.length <= 1;
+    btn.classList.toggle('opacity-30', rows.length <= 1);
+  });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  const editor = document.getElementById('header-editor');
-  if (editor) updateHeaderPreview(editor.value);
+  reindexSlides();
+  updateSlidePreview();
 });
 
 // ── CSS picker helpers ─────────────────────────────────────────────────────────
