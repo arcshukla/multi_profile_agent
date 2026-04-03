@@ -3,15 +3,13 @@
   <!-- Accordion: System Prompts -->
   <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="bg-gray-50 px-5 py-3 flex items-center justify-between gap-4 cursor-pointer select-none" onclick="toggleAccordion(this)">
-      <div class="flex items-center gap-3 min-w-0">
-        <svg class="acc-chevron w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-        </svg>
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-gray-800">System Prompts</p>
-          <p class="text-xs text-gray-400 mt-0.5 truncate">Edit system-level prompts for the RAG engine.</p>
-        </div>
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-800">System Prompts</p>
+        <p class="text-xs text-gray-400 mt-0.5 truncate">Edit system-level prompts for the RAG engine.</p>
       </div>
+      <svg class="acc-chevron w-4 h-4 text-indigo-500 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
     </div>
     <div class="acc-body hidden border-t border-gray-100" id="system-prompts-accordion-body">
       <!-- System Prompts content will be included here -->
@@ -22,18 +20,39 @@
   <!-- Accordion: Email Templates -->
   <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="bg-gray-50 px-5 py-3 flex items-center justify-between gap-4 cursor-pointer select-none" onclick="toggleAccordion(this)">
-      <div class="flex items-center gap-3 min-w-0">
-        <svg class="acc-chevron w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-        </svg>
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-gray-800">Email Templates</p>
-          <p class="text-xs text-gray-400 mt-0.5 truncate">Edit subject, plain-text body, and HTML body for each named template.</p>
-        </div>
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-800">Email Templates</p>
+        <p class="text-xs text-gray-400 mt-0.5 truncate">Edit subject, plain-text body, and HTML body for each named template.</p>
       </div>
+      <svg class="acc-chevron w-4 h-4 text-indigo-500 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
     </div>
     <div class="acc-body hidden border-t border-gray-100" id="email-templates-accordion-body">
+      <!-- Info link for SendGrid -->
+      <div class="px-5 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 flex items-center gap-2">
+        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4m0-4h.01"/></svg>
+        <span>
+          If you experience issues with outgoing emails, check your <a href="https://app.sendgrid.com/" target="_blank" class="underline hover:text-blue-900">SendGrid dashboard</a> for delivery status and errors.
+        </span>
+      </div>
       {% include "admin/partials/system_email_templates.html" %}
+    </div>
+  </div>
+
+  <!-- Accordion: Pushover Templates -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-gray-50 px-5 py-3 flex items-center justify-between gap-4 cursor-pointer select-none" onclick="toggleAccordion(this)">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-800">Pushover Templates</p>
+        <p class="text-xs text-gray-400 mt-0.5 truncate">Edit message format for Pushover notifications sent to admins.</p>
+      </div>
+      <svg class="acc-chevron w-4 h-4 text-indigo-500 flex-shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+    <div class="acc-body hidden border-t border-gray-100" id="pushover-templates-accordion-body">
+      {% include "admin/partials/system_pushover_templates.html" %}
     </div>
   </div>
 </div>

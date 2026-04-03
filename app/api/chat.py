@@ -1,7 +1,10 @@
 """
 api/chat.py  —  Chat endpoints
+
+Rate limiting: 20 requests / minute per IP on the POST /chat endpoint.
+Configured via settings.CHAT_RATE_LIMIT (default "20/minute").
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.core.constants import STATUS_ENABLED
 from app.core.logging_config import get_logger
@@ -14,6 +17,18 @@ from app.services.prompt_service import prompt_service
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/profiles/{slug}/chat", tags=["chat"])
+
+# ── Rate limiter ──────────────────────────────────────────────────────────────
+
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    _limiter = Limiter(key_func=get_remote_address)
+    _RATE_LIMIT_AVAILABLE = True
+except ImportError:
+    _limiter = None
+    _RATE_LIMIT_AVAILABLE = False
+    logger.warning("slowapi not installed — chat rate limiting is DISABLED")
 
 
 # ── Shared dependency ──────────────────────────────────────────────────────────
@@ -30,20 +45,50 @@ def _require_enabled_profile(slug: str) -> UserEntity:
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
-@router.post("", response_model=ChatResponse)
-def chat(slug: str, req: ChatRequest,
-         _entry: UserEntity = Depends(_require_enabled_profile)):
+def _chat_handler(
+    request:          Request,
+    slug:             str,
+    req:              ChatRequest,
+    background_tasks: BackgroundTasks,
+    _entry:           UserEntity,
+) -> ChatResponse:
     logger.info("Chat request | slug=%s | len=%d", slug, len(req.message))
     resp = chat_service.chat(
-        slug=slug,
-        message=req.message,
-        history=req.history,
-        session_id=req.session_id,
+        slug             = slug,
+        message          = req.message,
+        history          = req.history,
+        session_id       = req.session_id,
+        background_tasks = background_tasks,
     )
     logger.info("Chat response | slug=%s | tokens=%d calls=%d | followups=%d",
                 slug, resp.tokens_used.total_tokens,
                 resp.tokens_used.call_count, len(resp.followups))
     return resp
+
+
+if _RATE_LIMIT_AVAILABLE:
+    from app.core.config import settings as _settings
+
+    @router.post("", response_model=ChatResponse)
+    @_limiter.limit(getattr(_settings, "CHAT_RATE_LIMIT", "20/minute"))
+    def chat(
+        request:          Request,
+        slug:             str,
+        req:              ChatRequest,
+        background_tasks: BackgroundTasks,
+        _entry:           UserEntity = Depends(_require_enabled_profile),
+    ) -> ChatResponse:
+        return _chat_handler(request, slug, req, background_tasks, _entry)
+else:
+    @router.post("", response_model=ChatResponse)
+    def chat(
+        request:          Request,
+        slug:             str,
+        req:              ChatRequest,
+        background_tasks: BackgroundTasks,
+        _entry:           UserEntity = Depends(_require_enabled_profile),
+    ) -> ChatResponse:
+        return _chat_handler(request, slug, req, background_tasks, _entry)
 
 
 @router.get("/welcome")

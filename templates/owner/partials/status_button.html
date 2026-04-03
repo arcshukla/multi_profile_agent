@@ -1,0 +1,17 @@
+<div id="status-btn">
+  {% if status == "enabled" %}
+  <button form="status-form" name="status" value="disabled"
+    class="inline-flex items-center gap-1.5 text-xs font-medium bg-green-100 text-green-700
+           hover:bg-red-50 hover:text-red-600 px-3 py-1.5 rounded-full border border-green-200
+           hover:border-red-200 transition-colors">
+    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Live — click to disable
+  </button>
+  {% else %}
+  <button form="status-form" name="status" value="enabled"
+    class="inline-flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-600
+           hover:bg-green-50 hover:text-green-700 px-3 py-1.5 rounded-full border border-gray-200
+           hover:border-green-200 transition-colors">
+    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Disabled — click to enable
+  </button>
+  {% endif %}
+</div>

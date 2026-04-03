@@ -15,18 +15,27 @@
   <p class="text-sm text-gray-500 mt-0.5 ml-12">Customise the photo, header and styles shown on your public chat page.</p>
 </div>
 
-<div class="space-y-6">
+<div class="space-y-3">
+
+  <style>
+    details[open] .details-chevron { transform: rotate(180deg); }
+  </style>
 
   <!-- ── Profile Photo ──────────────────────────────────────────────────────── -->
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
-      <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+  <details class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <summary class="flex items-center justify-between px-5 py-3 cursor-pointer select-none list-none hover:bg-gray-50 transition-colors">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <p class="text-sm font-semibold text-gray-800">Profile Photo</p>
+      </div>
+      <svg class="w-4 h-4 text-indigo-500 transition-transform duration-200 details-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
       </svg>
-      <p class="text-sm font-semibold text-gray-800">Profile Photo</p>
-    </div>
-    <div class="p-5">
+    </summary>
+    <div class="border-t border-gray-100 p-5">
       <div class="flex items-start gap-6">
         <div class="flex-shrink-0 text-center">
           {% if has_photo %}
@@ -57,7 +66,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </details>
 
   <!-- ── Carousel Slides ──────────────────────────────────────────────────────── -->
   <style>
@@ -80,16 +89,21 @@
                     transition:background 0.2s, transform 0.2s; }
     .arc-dot.active { background:#4f46e5; transform:scale(1.25); }
   </style>
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
-      <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+  <details class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <summary class="flex items-center justify-between px-5 py-3 cursor-pointer select-none list-none hover:bg-gray-50 transition-colors">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+        </svg>
+        <p class="text-sm font-semibold text-gray-800">Carousel Slides</p>
+        <span class="ml-2 text-xs text-gray-400">Shown above the chat box · max 5 slides</span>
+      </div>
+      <svg class="w-4 h-4 text-indigo-500 transition-transform duration-200 details-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
       </svg>
-      <p class="text-sm font-semibold text-gray-800">Carousel Slides</p>
-      <span class="ml-auto text-xs text-gray-400">Shown above the chat box · max 5 slides</span>
-    </div>
-    <div class="p-5 space-y-4">
+    </summary>
+    <div class="border-t border-gray-100 p-5 space-y-4">
 
       <!-- Live preview -->
       <div>
@@ -175,7 +189,8 @@
         <div class="flex items-center gap-3 mt-4">
           <button type="button" id="add-slide-btn" onclick="addSlide()"
             class="text-xs font-medium text-indigo-600 border border-indigo-200 bg-indigo-50
-                   hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
+                   hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors
+                   disabled:opacity-40 disabled:cursor-not-allowed">
             + Add Slide
           </button>
           <button type="submit"
@@ -187,7 +202,7 @@
       </form>
 
     </div>
-  </div>
+  </details>
 
   <!-- Template for JS-added slides (SLIDE_IDX replaced at runtime) -->
   <template id="slide-row-template">
@@ -233,16 +248,21 @@
   </template>
 
   <!-- ── Color Scheme / CSS ─────────────────────────────────────────────────── -->
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
-      <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+  <details class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <summary class="flex items-center justify-between px-5 py-3 cursor-pointer select-none list-none hover:bg-gray-50 transition-colors">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+        </svg>
+        <p class="text-sm font-semibold text-gray-800">Color Scheme / CSS</p>
+      </div>
+      <svg class="w-4 h-4 text-indigo-500 transition-transform duration-200 details-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
       </svg>
-      <p class="text-sm font-semibold text-gray-800">Color Scheme / CSS</p>
-    </div>
+    </summary>
 
-    <div class="p-5 space-y-6">
+    <div class="border-t border-gray-100 p-5 space-y-6">
 
       <!-- Group 1: General -->
       <div>
@@ -373,9 +393,9 @@
       </details>
 
     </div>
-  </div>
+  </details>
 
-</div><!-- /space-y-6 -->
+</div><!-- /space-y-3 -->
 
 <script>
 // ── Photo preview ──────────────────────────────────────────────────────────────
@@ -531,11 +551,7 @@ function reindexSlides() {
     });
   });
   const addBtn = document.getElementById('add-slide-btn');
-  if (addBtn) {
-    addBtn.disabled = rows.length >= 5;
-    addBtn.classList.toggle('opacity-40', rows.length >= 5);
-    addBtn.classList.toggle('cursor-not-allowed', rows.length >= 5);
-  }
+  if (addBtn) addBtn.disabled = rows.length >= 5;
   document.querySelectorAll('.remove-slide-btn').forEach(btn => {
     btn.disabled = rows.length <= 1;
     btn.classList.toggle('opacity-30', rows.length <= 1);

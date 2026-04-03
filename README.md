@@ -1,3 +1,13 @@
+---
+title: AI Profile Platform
+emoji: 🤖
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 <div align="center">
 
 # AI Profile Platform
@@ -975,3 +985,4 @@ Update `.env` — point `OPENROUTER_BASE_URL` to any OpenAI-compatible endpoint.
 _Making every professional's story conversational._
 
 </div>
+

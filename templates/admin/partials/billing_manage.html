@@ -110,9 +110,53 @@
   {% endif %}
 
   {% else %}
-  <!-- Free tier: informational -->
+  <!-- Free tier: donation records -->
   <div class="border-t border-gray-100 pt-4">
-    <p class="text-xs text-gray-400 italic">No billing active — profile is on the free tier.</p>
+    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Donation Records</p>
+    {% if donations %}
+    <div class="space-y-2">
+      {% for don in donations %}
+      <div class="flex items-start justify-between gap-3 rounded-lg border
+                  {{ 'border-green-200 bg-green-50' if don.status.value == 'confirmed' else 'border-amber-200 bg-amber-50' }}
+                  px-3 py-2.5 text-xs">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-mono font-medium text-gray-700">{{ don.id }}</span>
+            {% if don.status.value == "confirmed" %}
+            <span class="bg-green-200 text-green-800 font-semibold px-1.5 py-0.5 rounded-full">CONFIRMED</span>
+            {% else %}
+            <span class="bg-amber-200 text-amber-800 font-semibold px-1.5 py-0.5 rounded-full">PENDING</span>
+            {% endif %}
+          </div>
+          <p class="text-gray-500 mt-0.5">
+            ₹{{ "%.2f"|format(don.amount) }}
+            {% if don.note %} · <span class="italic">{{ don.note }}</span>{% endif %}
+            · created {{ don.created_at[:10] }}
+          </p>
+          {% if don.status.value == "confirmed" %}
+          <p class="text-green-700 mt-0.5">
+            Confirmed by {{ don.confirmed_by }} on {{ don.confirmed_at[:10] if don.confirmed_at else "—" }}
+            {% if don.email_sent %}<span class="ml-1 text-green-600">(email sent ✓)</span>{% endif %}
+          </p>
+          {% endif %}
+        </div>
+
+        {% if don.status.value == "pending" %}
+        <button
+          hx-post="/admin/billing/{{ slug }}/donation/{{ don.id }}/confirm"
+          hx-target="#billing-manage-{{ slug }}"
+          hx-swap="outerHTML"
+          hx-confirm="Confirm receipt of ₹{{ don.amount|int }} donation from {{ slug }}? A thank-you email will be sent to the owner."
+          class="flex-shrink-0 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+          Confirm Receipt
+        </button>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-xs text-gray-400 italic">No donation records yet. Owner can generate a donation QR from their billing page.</p>
+    {% endif %}
   </div>
   {% endif %}
 

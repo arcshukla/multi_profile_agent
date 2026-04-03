@@ -149,11 +149,18 @@ class Settings:
     # ── Support ───────────────────────────────────────────────────────────────
     SUPPORT_EMAIL = CfgField("SUPPORT_EMAIL", "support@aiprofile.app", label="Support Email", section="Support")
 
+    # ── Rate limiting ─────────────────────────────────────────────────────────
+    CHAT_RATE_LIMIT = CfgField("CHAT_RATE_LIMIT", "20/minute", label="Chat Rate Limit", section="Security")
+
     # ── Billing / UPI ─────────────────────────────────────────────────────────
     UPI_VPA               = CfgField("UPI_VPA",               "",                    label="UPI VPA",               section="Billing")
     UPI_PAYEE_NAME        = CfgField("UPI_PAYEE_NAME",        "AI Profile Platform", label="UPI Payee Name",        section="Billing")
     PLATFORM_FEE_INR      = CfgField("PLATFORM_FEE_INR",      10.0,                  label="Platform Fee (INR)",    cast=float, section="Billing")
     BILLING_INTERVAL_DAYS = CfgField("BILLING_INTERVAL_DAYS", 30,                    label="Billing Interval (days)", cast=int, section="Billing")
+    DONATION_MIN_INR      = CfgField("DONATION_MIN_INR",      10.0,                  label="Donation Min (INR)",      cast=float, section="Billing")
+    DONATION_MAX_INR      = CfgField("DONATION_MAX_INR",      500.0,                 label="Donation Max (INR)",      cast=float, section="Billing")
+    DONATION_UPI_VPA      = CfgField("DONATION_UPI_VPA",      "",                    label="Donation UPI VPA (optional, falls back to UPI VPA)", section="Billing")
+    DONATION_UPI_NAME     = CfgField("DONATION_UPI_NAME",     "",                    label="Donation UPI Payee Name (optional)", section="Billing")
 
     # ── Notifications (optional) ──────────────────────────────────────────────
     PUSHOVER_USER_KEY  = CfgField("PUSHOVER_USER_KEY",  "", label="Pushover User Key",  secret=True, section="Notifications")

@@ -95,15 +95,24 @@
   </div>
 </div>
 
+<style>
+  details[open] .details-chevron { transform: rotate(180deg); }
+</style>
+
 <!-- ── Indexing History ──────────────────────────────────────────────────────── -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-  <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
-    <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+<details class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+  <summary class="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 cursor-pointer select-none list-none hover:bg-gray-100 transition-colors">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <p class="text-sm font-semibold text-gray-800">Indexing History</p>
+    </div>
+    <svg class="w-4 h-4 text-indigo-500 transition-transform duration-200 details-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
     </svg>
-    <p class="text-sm font-semibold text-gray-800">Indexing History</p>
-  </div>
+  </summary>
 
   {% if history %}
   <table class="w-full text-sm">
@@ -149,7 +158,7 @@
     <p class="text-sm text-gray-400">No indexing runs recorded yet.</p>
   </div>
   {% endif %}
-</div>
+</details>
 
 <!-- ── Token Usage ─────────────────────────────────────────────────────────── -->
 {% set indexing_total = usage.indexing_total or 0 %}
@@ -157,13 +166,18 @@
 {% set query_total    = usage.query_total    or 0 %}
 {% set grand_total    = indexing_total + intent_total + query_total %}
 
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-  <div class="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
-    <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+<details class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+  <summary class="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 cursor-pointer select-none list-none hover:bg-gray-100 transition-colors">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+      </svg>
+      <p class="text-sm font-semibold text-gray-800">Token Usage</p>
+    </div>
+    <svg class="w-4 h-4 text-indigo-500 transition-transform duration-200 details-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
     </svg>
-    <p class="text-sm font-semibold text-gray-800">Token Usage</p>
-  </div>
+  </summary>
 
   <!-- Summary chips -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-5">
@@ -214,7 +228,7 @@
     <strong>Intent</strong> = topic classification per query &nbsp;|&nbsp;
     <strong>Chat</strong> = main response + follow-up generation
   </p>
-</div>
+</details>
 
 <!-- ── AI Settings (future: BYOK) ────────────────────────────────────────── -->
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">

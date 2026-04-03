@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}AI Profile Platform{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
+  <link rel="stylesheet" href="/static/tailwind.css">
+  <!-- htmx 1.9.12 -->
+  <script src="https://unpkg.com/htmx.org@1.9.12" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js" crossorigin="anonymous"></script>
   <style>
     [x-cloak] { display: none !important; }
     .htmx-indicator { display: none; }
@@ -20,7 +21,32 @@
 <body class="h-full bg-gray-50 text-gray-900">
   {% block body %}{% endblock %}
   <script>
-    // HTMX global error handler
+    // Inject CSRF token into every HTMX request (reads the csrftoken cookie set by starlette-csrf)
+    document.addEventListener("htmx:configRequest", function(evt) {
+      const match = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+      if (match) {
+        evt.detail.headers['x-csrftoken'] = match.split('=')[1].trim();
+      }
+    });
+
+    // Intercept plain HTML form POSTs and re-submit via fetch with the CSRF header.
+    // starlette-csrf only accepts the token via header, not form body.
+    document.addEventListener("DOMContentLoaded", function() {
+      document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(function(form) {
+        form.addEventListener("submit", async function(evt) {
+          evt.preventDefault();
+          const match = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+          const token = match ? match.split('=')[1].trim() : '';
+          const resp = await fetch(form.action || window.location.href, {
+            method: 'POST',
+            headers: { 'x-csrftoken': token },
+            body: new FormData(form),
+          });
+          const html = await resp.text();
+          document.open(); document.write(html); document.close();
+        });
+      });
+    });
     document.body.addEventListener('htmx:responseError', function(evt) {
       console.error('HTMX error:', evt.detail);
       const msg = evt.detail.xhr?.responseText || 'An error occurred';

@@ -32,9 +32,10 @@ oauth.register(
 
 async def redirect_to_google(request: Request):
     """Return an authlib redirect response to Google's consent screen."""
-    redirect_uri = str(request.url_for("auth_callback"))
-    # Behind HF Spaces / reverse proxies the scheme arrives as http — force https
-    # but only for non-local URLs (localhost stays as http for local dev)
+    callback_path = request.app.url_path_for("auth_callback")
+    redirect_uri = f"{settings.APP_URL.rstrip('/')}{callback_path}"
+    # Behind HF Spaces / reverse proxies the scheme may arrive as http — force https
+    # for non-local callback URLs. Local dev stays on plain http.
     if redirect_uri.startswith("http://") and "localhost" not in redirect_uri and "127.0.0.1" not in redirect_uri:
         redirect_uri = "https://" + redirect_uri[len("http://"):]
     return await oauth.google.authorize_redirect(request, redirect_uri)

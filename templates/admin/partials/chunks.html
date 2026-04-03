@@ -1,0 +1,16 @@
+{% if not chunks %}
+<p class="text-xs text-gray-400 italic">No chunks indexed yet.</p>
+{% else %}
+<div class="space-y-2 max-h-96 overflow-y-auto mt-2">
+  {% for chunk in chunks %}
+  <div class="border border-gray-100 rounded-lg p-3 space-y-1">
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-mono bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">#{{ chunk.i }}</span>
+      <span class="text-xs font-medium text-gray-700">{{ chunk.topic }}</span>
+      <span class="text-xs text-gray-400 truncate">— {{ chunk.source }}</span>
+    </div>
+    <p class="text-xs text-gray-600 font-mono leading-relaxed whitespace-pre-wrap">{{ chunk.preview }}{% if chunk.truncated %}…{% endif %}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

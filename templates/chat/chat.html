@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chat with {{ profile.name }}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
+  <link rel="stylesheet" href="/static/tailwind.css">
+  <!-- htmx 1.9.12 -->
+  <script src="https://unpkg.com/htmx.org@1.9.12" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js" crossorigin="anonymous"></script>
 
   <!--
     CSS injection order (intentional):
@@ -571,6 +572,13 @@ async function sendMessage(messageOverride) {
     hideTyping();
 
     if (data.answer) {
+      // Show a one-time notice when the server trimmed the history window
+      if (data.history_trimmed && !sessionId) {
+        const noticeDiv = document.createElement("div");
+        noticeDiv.className = "text-xs text-center text-gray-400 italic py-1";
+        noticeDiv.textContent = "Earlier messages in this conversation are not included in the AI's context.";
+        document.getElementById("chat-messages").appendChild(noticeDiv);
+      }
       addMessage("assistant", data.answer);
       history.push({ role: "assistant", content: data.answer });
       sessionId = data.session_id || sessionId;

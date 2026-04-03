@@ -33,10 +33,11 @@ class TokenUsage(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    answer:      str
-    followups:   list[str]  = []
-    session_id:  str        = ""
-    tokens_used: TokenUsage = TokenUsage()
+    answer:          str
+    followups:       list[str]  = []
+    session_id:      str        = ""
+    tokens_used:     TokenUsage = TokenUsage()
+    history_trimmed: bool       = False   # True when earlier messages were dropped per profile limit
 
 
 # ---------------------------------------------------------------------------

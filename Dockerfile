@@ -22,6 +22,14 @@ RUN echo ">>> Installing Python dependencies (this may take a while)..." && \
 # Copy application code
 COPY . .
 
+# Build Tailwind CSS from templates
+RUN echo ">>> Building Tailwind CSS..." && \
+    python -m pytailwindcss \
+      -i app/static_src/tailwind.css \
+      -o static/tailwind.css \
+      --minify && \
+    echo ">>> Tailwind CSS built."
+
 # Create required directories (will be volume-mounted in production)
 RUN mkdir -p profiles system logs static && \
     echo ">>> Build complete. Starting application..."

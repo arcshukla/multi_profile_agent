@@ -61,3 +61,12 @@ CHAT_HISTORY_WINDOW = 4
 EVENT_LEAD       = "lead"
 EVENT_UNKNOWN    = "unknown_question"
 EVENT_CHAT       = "chat"
+
+# ── User roles ────────────────────────────────────────────────────────────────
+ROLE_ADMIN = "admin"
+ROLE_OWNER = "owner"
+
+# ── Chat session history limits ───────────────────────────────────────────────
+CHAT_HISTORY_LIMIT_DEFAULT = 4   # turns kept in owner preferences by default
+CHAT_HISTORY_LIMIT_MIN     = 2
+CHAT_HISTORY_LIMIT_MAX     = 10

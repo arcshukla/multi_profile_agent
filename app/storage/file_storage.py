@@ -18,6 +18,7 @@ This module creates, reads, and cleans up those folders.
 No business logic here — pure I/O.
 """
 
+import copy
 import json
 import shutil
 from pathlib import Path
@@ -176,14 +177,14 @@ class ProfileFileStorage:
         """Return slides dict from slides.json; returns default if not set."""
         raw = self.read_text(self.slides_path, default=None)
         if raw is None:
-            return dict(self._DEFAULT_SLIDES)
+            return copy.deepcopy(self._DEFAULT_SLIDES)
         try:
             data = json.loads(raw)
             if isinstance(data, dict) and "slides" in data:
                 return data
         except Exception:
             pass
-        return dict(self._DEFAULT_SLIDES)
+        return copy.deepcopy(self._DEFAULT_SLIDES)
 
     def write_slides(self, data: dict) -> None:
         self.write_text(self.slides_path, json.dumps(data, ensure_ascii=False, indent=2))

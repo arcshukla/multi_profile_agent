@@ -1,0 +1,50 @@
+<!-- System: Pushover Templates partial -->
+<div id="pushover-templates-container" class="space-y-3">
+  {% for name, tmpl in pushover_templates.items() %}
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="pushover-tmpl-{{ name }}">
+    <div class="bg-gray-50 px-5 py-3 flex items-center justify-between gap-4 cursor-pointer select-none" onclick="toggleAccordion(this)">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-800">{{ tmpl.name }}</p>
+        <p class="text-xs text-gray-400 mt-0.5 truncate">{{ tmpl.description }}</p>
+      </div>
+      <div class="flex items-center gap-3 flex-shrink-0">
+        <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+          <span class="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-1 rounded">{{ name }}</span>
+          <button
+            hx-post="/admin/system/pushover/restore/{{ name }}"
+            hx-target="#pushover-tmpl-{{ name }}"
+            hx-swap="outerHTML"
+            hx-confirm="Restore '{{ tmpl.name }}' to its built-in default?"
+            class="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-400 hover:border-amber-300 hover:text-amber-600 transition-colors">
+            Restore
+          </button>
+        </div>
+        <svg class="acc-chevron w-4 h-4 text-indigo-500 flex-shrink-0 transition-transform duration-200 {% if loop.first %}rotate-180{% endif %}"
+          fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+    </div>
+    <div class="acc-body {% if not loop.first %}hidden{% endif %} border-t border-gray-100">
+      <form
+        hx-post="/admin/system/pushover/save/{{ name }}"
+        hx-target="#pushover-save-status-{{ name }}"
+        hx-swap="innerHTML"
+        class="p-5 space-y-5">
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Message Body</label>
+          <textarea
+            name="body_text"
+            rows="5"
+            class="w-full font-mono text-xs border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50 leading-relaxed"
+          >{{ tmpl.body_text }}</textarea>
+        </div>
+        <div id="pushover-save-status-{{ name }}" class="text-xs text-green-600"></div>
+        <div class="flex justify-end">
+          <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>

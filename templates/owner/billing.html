@@ -47,6 +47,99 @@
   </div>
 </div>
 
+<!-- ── Voluntary Donation ──────────────────────────────────────────────────── -->
+<div class="mt-6 bg-white border border-gray-200 rounded-xl">
+  <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+    <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+    </svg>
+    <h2 class="text-sm font-semibold text-gray-700">Voluntary Donation</h2>
+  </div>
+  <div class="p-5">
+    <p class="text-sm text-gray-500 mb-4">
+      Appreciate the platform? Make a voluntary contribution. Set an amount, generate a UPI QR, scan and pay — the platform admin will confirm receipt and send you a thank-you.
+    </p>
+
+    <!-- Donation form -->
+    <form hx-post="/owner/billing/donation"
+          hx-target="#donation-result"
+          hx-swap="innerHTML"
+          hx-indicator="#donation-spinner"
+          class="flex flex-wrap items-end gap-3 mb-5">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">
+          Amount (₹{{ donation_min|int }}–₹{{ donation_max|int }})
+        </label>
+        <input type="number" name="amount"
+               min="{{ donation_min }}" max="{{ donation_max }}" step="1" required
+               value="{{ donations[0].amount|int if donations else donation_min|int }}"
+               class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Note (optional)</label>
+        <input type="text" name="note" maxlength="80"
+               placeholder="e.g. Thanks for the great platform!"
+               class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <button type="submit"
+              class="flex items-center gap-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded-lg transition-colors">
+        <span id="donation-spinner" class="htmx-indicator">
+          <svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+        </span>
+        Generate QR
+      </button>
+    </form>
+
+    <!-- HTMX result — pre-populated if a PENDING donation exists -->
+    <div id="donation-result">
+      {% if donations and donations[0].status.value == "pending" %}
+      {% set don = donations[0] %}
+      <div class="flex flex-wrap items-start gap-4 bg-gray-50 border border-gray-200 rounded-xl p-4">
+        <div class="bg-white border border-gray-200 rounded-xl p-2 flex-shrink-0">
+          <img src="/owner/billing/donation/qr/{{ don.id }}" alt="Donation QR" class="w-36 h-36 object-contain">
+        </div>
+        <div class="space-y-1.5 text-xs text-gray-600 min-w-0">
+          <p class="font-semibold text-gray-800 text-sm">₹{{ "%.2f"|format(don.amount) }}{% if don.note %} · <span class="font-normal text-gray-500">{{ don.note }}</span>{% endif %}</p>
+          <p>UPI ID: <code class="font-mono bg-gray-100 px-1 rounded">{{ donation_upi_vpa }}</code></p>
+          <p class="text-gray-400">Reference: <code class="font-mono">{{ don.id }}</code></p>
+          <p class="text-gray-400 italic">Scan and pay, then wait for the admin to confirm receipt.</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Donation history -->
+    {% if donations %}
+    <div class="mt-5 border-t border-gray-100 pt-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Donation History</p>
+      <div class="space-y-1.5">
+        {% for don in donations %}
+        <div class="flex items-center gap-3 px-3 py-2 rounded-lg border text-xs
+                    {{ 'bg-green-50 border-green-200' if don.status.value == 'confirmed' else 'bg-amber-50 border-amber-200' }}">
+          <span class="font-mono text-gray-600 flex-shrink-0">{{ don.id }}</span>
+          <span class="font-semibold text-gray-800">₹{{ "%.2f"|format(don.amount) }}</span>
+          {% if don.note %}<span class="text-gray-500 truncate">{{ don.note }}</span>{% endif %}
+          <span class="ml-auto flex-shrink-0">
+            {% if don.status.value == "confirmed" %}
+            <span class="bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full">Confirmed</span>
+            {% else %}
+            <span class="bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">Pending</span>
+            {% endif %}
+          </span>
+          <span class="text-gray-400 flex-shrink-0">{{ (don.confirmed_at[:10] if don.confirmed_at else don.created_at[:10]) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
 <!-- ── Paid tier ──────────────────────────────────────────────────────────── -->
 {% else %}
 

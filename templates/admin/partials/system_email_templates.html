@@ -3,26 +3,26 @@
     {% for name, tmpl in templates.items() %}
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="tmpl-{{ name }}">
       <div class="bg-gray-50 px-5 py-3 flex items-center justify-between gap-4 cursor-pointer select-none" onclick="toggleAccordion(this)">
-        <div class="flex items-center gap-3 min-w-0">
-          <svg class="acc-chevron w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 {% if loop.first %}rotate-180{% endif %}"
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-gray-800">{{ tmpl.name }}</p>
+          <p class="text-xs text-gray-400 mt-0.5 truncate">{{ tmpl.description }}</p>
+        </div>
+        <div class="flex items-center gap-3 flex-shrink-0">
+          <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+            <span class="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-1 rounded">{{ name }}</span>
+            <button
+              hx-post="/admin/system/email/restore/{{ name }}"
+              hx-target="#tmpl-{{ name }}"
+              hx-swap="outerHTML"
+              hx-confirm="Restore '{{ tmpl.name }}' to its built-in default?"
+              class="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-400 hover:border-amber-300 hover:text-amber-600 transition-colors">
+              Restore
+            </button>
+          </div>
+          <svg class="acc-chevron w-4 h-4 text-indigo-500 flex-shrink-0 transition-transform duration-200 {% if loop.first %}rotate-180{% endif %}"
             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
           </svg>
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-gray-800">{{ tmpl.name }}</p>
-            <p class="text-xs text-gray-400 mt-0.5 truncate">{{ tmpl.description }}</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 flex-shrink-0" onclick="event.stopPropagation()">
-          <span class="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-1 rounded">{{ name }}</span>
-          <button
-            hx-post="/admin/system/email/restore/{{ name }}"
-            hx-target="#tmpl-{{ name }}"
-            hx-swap="outerHTML"
-            hx-confirm="Restore '{{ tmpl.name }}' to its built-in default?"
-            class="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-400 hover:border-amber-300 hover:text-amber-600 transition-colors">
-            Restore
-          </button>
         </div>
       </div>
       <div class="acc-body {% if not loop.first %}hidden{% endif %} border-t border-gray-100">
@@ -52,15 +52,33 @@
                 >{{ tmpl.body_text }}</textarea>
               </div>
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                  HTML Body
-                  <span class="ml-1 normal-case font-normal text-gray-400">(rendered by modern email clients)</span>
-                </label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                    HTML Body
+                    <span class="ml-1 normal-case font-normal text-gray-400">(rendered by modern email clients)</span>
+                  </label>
+                  <div class="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+                    <button type="button"
+                      onclick="emailTplShowCode('{{ name }}')"
+                      id="btn-code-{{ name }}"
+                      class="px-3 py-1 bg-indigo-600 text-white transition-colors">Code</button>
+                    <button type="button"
+                      onclick="emailTplShowPreview('{{ name }}')"
+                      id="btn-preview-{{ name }}"
+                      class="px-3 py-1 bg-white text-gray-500 hover:text-indigo-600 transition-colors">Preview</button>
+                  </div>
+                </div>
                 <textarea
+                  id="body-html-{{ name }}"
                   name="body_html"
                   rows="20"
                   class="w-full font-mono text-xs border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50 leading-relaxed"
                 >{{ tmpl.body_html }}</textarea>
+                <iframe
+                  id="preview-{{ name }}"
+                  class="hidden w-full border border-gray-200 rounded-lg bg-white"
+                  style="height:500px;"
+                  sandbox="allow-same-origin"></iframe>
               </div>
               <div class="flex items-center gap-3">
                 <button type="submit"
@@ -73,3 +91,28 @@
           </div>
         </div>
         {% endfor %}
+  </div>
+
+<script>
+function emailTplShowCode(name) {
+  document.getElementById('body-html-' + name).classList.remove('hidden');
+  document.getElementById('preview-' + name).classList.add('hidden');
+  document.getElementById('btn-code-' + name).classList.add('bg-indigo-600', 'text-white');
+  document.getElementById('btn-code-' + name).classList.remove('bg-white', 'text-gray-500');
+  document.getElementById('btn-preview-' + name).classList.remove('bg-indigo-600', 'text-white');
+  document.getElementById('btn-preview-' + name).classList.add('bg-white', 'text-gray-500');
+}
+
+function emailTplShowPreview(name) {
+  const ta = document.getElementById('body-html-' + name);
+  const frame = document.getElementById('preview-' + name);
+  // Write current textarea content into sandboxed iframe
+  frame.srcdoc = ta.value;
+  ta.classList.add('hidden');
+  frame.classList.remove('hidden');
+  document.getElementById('btn-preview-' + name).classList.add('bg-indigo-600', 'text-white');
+  document.getElementById('btn-preview-' + name).classList.remove('bg-white', 'text-gray-500');
+  document.getElementById('btn-code-' + name).classList.remove('bg-indigo-600', 'text-white');
+  document.getElementById('btn-code-' + name).classList.add('bg-white', 'text-gray-500');
+}
+</script>

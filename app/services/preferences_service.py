@@ -7,30 +7,45 @@ Storage: profiles/{slug}/config/preferences.json
 
 Schema:
   {
-    "notify_unanswered_email": false
+    "notify_unanswered_email": false,
+    "chat_history_limit":      10
   }
+
+New keys are always merged in on load so older preference files are upgraded
+transparently — callers always receive a fully-populated dict.
 """
 
 import json
 
 from app.core.config import PROFILES_DIR
+from app.core.constants import CHAT_HISTORY_LIMIT_DEFAULT
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+_DEFAULTS: dict = {
+    "notify_unanswered_email": False,
+    "chat_history_limit":      CHAT_HISTORY_LIMIT_DEFAULT,
+}
 
 
 class PreferencesService:
 
     def get(self, slug: str) -> dict:
-        """Load preferences, returning defaults if file absent."""
+        """
+        Load preferences, merging with defaults so all keys are always present.
+        Falls back to defaults if the file is absent or unreadable.
+        """
         path = PROFILES_DIR / slug / "config" / "preferences.json"
+        stored: dict = {}
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            stored = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
-            return {"notify_unanswered_email": False}
+            pass
         except Exception as e:
             logger.error("Failed to load preferences for %s: %s", slug, e)
-            return {"notify_unanswered_email": False}
+        # Merge: defaults first, then overwrite with stored values
+        return {**_DEFAULTS, **stored}
 
     def save(self, slug: str, prefs: dict) -> None:
         path = PROFILES_DIR / slug / "config" / "preferences.json"

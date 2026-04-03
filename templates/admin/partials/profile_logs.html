@@ -1,0 +1,6 @@
+{% if not lines %}
+<p class="text-sm text-gray-400 font-mono">No log entries yet for this profile.</p>
+{% else %}
+<pre class="text-xs text-green-400 font-mono bg-gray-900 rounded-lg p-4 overflow-x-auto
+            whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">{{ lines | join('\n') }}</pre>
+{% endif %}

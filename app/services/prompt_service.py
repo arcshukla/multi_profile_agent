@@ -137,7 +137,7 @@ class PromptService:
                 fs.prompts_path.unlink()
                 logger.info("Restored default prompts for profile '%s'", slug)
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error("Failed to restore defaults for '%s': %s", slug, e)
             return False
 
@@ -218,7 +218,7 @@ class PromptService:
             fs.write_prompts_raw(file_content)
             logger.info("Saved prompts for profile '%s'", slug)
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error("Failed to save prompts for '%s': %s", slug, e)
             return False
 
@@ -234,8 +234,10 @@ class PromptService:
                     for target in node.targets:
                         if isinstance(target, ast.Name) and target.id == "PROMPTS":
                             return ast.literal_eval(node.value)
-        except Exception as e:
-            logger.warning("AST parse of prompts file failed: %s", e)
+        except SyntaxError as e:
+            logger.warning("Syntax error parsing prompts file: %s", e)
+        except (ValueError, TypeError) as e:
+            logger.warning("Non-literal value in prompts file: %s", e)
         return None
 
 

@@ -1,0 +1,27 @@
+<tr>
+  <td colspan="6" class="px-4 py-3 bg-indigo-50 border-b border-indigo-100">
+    <form hx-post="/admin/system/users/update"
+          hx-target="#users-container" hx-swap="outerHTML"
+          class="flex items-end gap-3 flex-wrap">
+      <input type="hidden" name="old_email" value="{{ email }}">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Email</label>
+        <input type="email" name="new_email" value="{{ email }}" required
+               class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 font-mono w-64
+                      focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      </div>
+      <div class="flex gap-2">
+        <button type="submit"
+                class="px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+          Save
+        </button>
+        <button type="button"
+                hx-get="/admin/system/users"
+                hx-target="#users-container" hx-swap="outerHTML"
+                class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </td>
+</tr>

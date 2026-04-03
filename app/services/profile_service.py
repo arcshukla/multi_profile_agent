@@ -63,6 +63,11 @@ class ProfileService:
     def get_entry(self, slug: str) -> Optional[UserEntity]:
         return user_service.get_user_by_slug(slug)
 
+    def get_display_name(self, slug: str) -> str:
+        """Return the profile owner's display name, falling back to slug if not found."""
+        owner = user_service.get_user_by_slug(slug)
+        return owner.name if owner else slug
+
     def profile_exists(self, slug: str) -> bool:
         return user_service.get_user_by_slug(slug) is not None
 

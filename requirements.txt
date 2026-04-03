@@ -39,3 +39,10 @@ qrcode[pil]>=7.4.2     # UPI QR code generation (pulls in Pillow)
 
 # Excel export
 openpyxl>=3.1.0        # Chat history download as .xlsx
+
+# Security
+slowapi>=0.1.9          # Per-IP rate limiting on chat endpoint
+starlette-csrf>=1.4.5   # CSRF protection for state-changing forms
+
+# CSS build
+pytailwindcss>=0.2.0    # Tailwind CSS standalone CLI wrapper (downloads binary)

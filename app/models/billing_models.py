@@ -28,6 +28,29 @@ class InvoiceStatus(str, Enum):
     OVERDUE = "overdue"
 
 
+class DonationStatus(str, Enum):
+    PENDING   = "pending"    # QR generated, awaiting payment + admin confirmation
+    CONFIRMED = "confirmed"  # Admin confirmed receipt of payment
+
+
+# ── Donation ───────────────────────────────────────────────────────────────
+
+class DonationRecord(BaseModel):
+    id:            str                                         # "don_{uuid8}"
+    amount:        float                                       # INR, owner-chosen
+    currency:      str = "INR"
+    payment_mode:  str = "upi_qr"                             # str not enum — extensible
+    note:          str = ""                                    # optional owner note
+    upi_uri:       Optional[str] = None                       # platform UPI deep-link
+    qr_path:       Optional[str] = None                       # relative to STATIC_DIR
+    provider_meta: dict = {}                                   # future: razorpay order_id, etc.
+    status:        DonationStatus = DonationStatus.PENDING
+    created_at:    str                                         # ISO UTC
+    confirmed_at:  Optional[str] = None
+    confirmed_by:  Optional[str] = None                        # admin email
+    email_sent:    bool = False                                # idempotency: thank-you email sent?
+
+
 # ── Invoice ────────────────────────────────────────────────────────────────
 
 class Invoice(BaseModel):
@@ -53,6 +76,7 @@ class BillingEntry(BaseModel):
     tier_changed_at: Optional[str] = None
     tier_changed_by: Optional[str] = None
     invoices:        list[Invoice] = []
+    donations:       list[DonationRecord] = []
 
 
 # ── API request / response shapes ─────────────────────────────────────────

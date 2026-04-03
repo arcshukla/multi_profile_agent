@@ -1,0 +1,7 @@
+{
+  "admin_alert": {
+    "name": "Admin Alert",
+    "description": "Sent to the admin for important system events. Available placeholders: {event}, {profile}, {details}.",
+    "body_text": "[AI Profile Alert] {event} on {profile}: {details}"
+  }
+}

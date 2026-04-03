@@ -20,7 +20,8 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.core.constants import CHAT_HISTORY_WINDOW
+from fastapi import BackgroundTasks
+
 from app.core.logging_config import (
     get_logger, get_chat_logger, get_profile_logger,
     get_session_logger, new_session_id, set_current_session_id,
@@ -31,12 +32,7 @@ from app.services.index_service import index_service
 from app.services.prompt_service import prompt_service
 from app.rag.llm_client import LLMClient
 from app.storage.file_storage import ProfileFileStorage
-from app.utils.notifier import notifier
-from app.services.preferences_service import preferences_service
-from app.services.user_service import user_service
-from app.utils.sendgrid_service import sendgrid_service
-from app.services.email_template_service import email_template_service
-from app.core.config import settings as _settings
+from app.services.notification_service import notification_service
 
 logger   = get_logger(__name__)
 chat_log = get_chat_logger()
@@ -129,13 +125,17 @@ class ChatService:
 
     def chat(
         self,
-        slug:       str,
-        message:    str,
-        history:    list[ChatMessage],
-        session_id: str = "",
+        slug:             str,
+        message:          str,
+        history:          list[ChatMessage],
+        session_id:       str = "",
+        background_tasks: Optional[BackgroundTasks] = None,
     ) -> ChatResponse:
         """
         Process one chat turn for a profile.
+
+        background_tasks: when provided, non-critical I/O (chat event persistence,
+        notifications) is deferred so the HTTP response is not blocked.
 
         Returns:
             ChatResponse with answer, followup questions, and full token usage.
@@ -147,6 +147,16 @@ class ChatService:
         budget = _TokenBudget()
 
         slog.info("── Chat turn | slug=%s | query=%s", slug, message[:80])
+
+        # Load per-profile chat history limit from preferences
+        from app.services.preferences_service import preferences_service
+        from app.core.constants import CHAT_HISTORY_LIMIT_DEFAULT
+        prefs         = preferences_service.get(slug)
+        history_limit = int(prefs.get("chat_history_limit", CHAT_HISTORY_LIMIT_DEFAULT))
+
+        # Trim history to owner-configured window
+        trimmed_history = history[-history_limit:]
+        history_trimmed = len(history) > history_limit
 
         # Get RAG engine
         engine = index_service.get_engine(slug)
@@ -173,7 +183,7 @@ class ChatService:
         messages = [
             {"role": "system", "content": sys_prompt},
             {"role": "system", "content": f"[PROFILE CONTEXT]\n{context_block}"},
-            *[{"role": m.role, "content": m.content} for m in history[-CHAT_HISTORY_WINDOW:]],
+            *[{"role": m.role, "content": m.content} for m in trimmed_history],
             {"role": "user",   "content": message},
         ]
 
@@ -181,34 +191,38 @@ class ChatService:
         answer = self._llm_loop(messages, slug, sid, slog, budget)
 
         # Followup generation
+        _was_answered = not any(p in answer.lower() for p in prompt_service.unknown_phrases())
         turn_followups = self._generate_turn_followups(
             slug         = slug,
             question     = message,
             answer       = answer,
             snapshot     = snapshot,
-            was_answered = not any(p in answer.lower() for p in prompt_service.unknown_phrases()),
+            was_answered = _was_answered,
             budget       = budget,
         )
         final_followups = turn_followups or prompt_service.fallback_followups()
 
-        # Persist token usage for admin dashboard
+        # Persist token usage for admin dashboard (synchronous — fast local write)
         token_service.record(slug, "query", budget.prompt, budget.completion, budget.total)
 
-        # Structured chat event for owner analytics
-        _was_answered = not any(p in answer.lower() for p in prompt_service.unknown_phrases())
-        ProfileFileStorage(slug).append_chat_event({
-            "ts":          datetime.now(timezone.utc).isoformat(),
-            "session_id":  sid,
-            "question":    message,
-            "answer":      answer,
-            "tokens":      budget.total,
+        # Structured chat event — defer to background so HTTP response is not blocked
+        event = {
+            "ts":           datetime.now(timezone.utc).isoformat(),
+            "session_id":   sid,
+            "question":     message,
+            "answer":       answer,
+            "tokens":       budget.total,
             "was_answered": _was_answered,
-        })
+        }
+        if background_tasks is not None:
+            background_tasks.add_task(ProfileFileStorage(slug).append_chat_event, event)
+        else:
+            ProfileFileStorage(slug).append_chat_event(event)
 
         # Structured logging
         slog.info(
-            "Turn complete | tokens=%d (prompt=%d compl=%d calls=%d)",
-            budget.total, budget.prompt, budget.completion, budget.calls,
+            "Turn complete | tokens=%d (prompt=%d compl=%d calls=%d) | history_trimmed=%s",
+            budget.total, budget.prompt, budget.completion, budget.calls, history_trimmed,
         )
         chat_log.info(
             "slug=%s | tokens=%d | Q=%s | A=%s",
@@ -220,10 +234,11 @@ class ChatService:
         )
 
         return ChatResponse(
-            answer       = answer,
-            followups    = final_followups,
-            session_id   = sid,
-            tokens_used  = budget.to_model(),
+            answer          = answer,
+            followups       = final_followups,
+            session_id      = sid,
+            tokens_used     = budget.to_model(),
+            history_trimmed = history_trimmed,
         )
 
     def get_initial_followups(self, slug: str) -> list[str]:
@@ -238,8 +253,7 @@ class ChatService:
             return prompt_service.fallback_followups()
 
         from app.services.profile_service import profile_service
-        entry  = profile_service.get_entry(slug)
-        name   = entry.name if entry else slug
+        name   = profile_service.get_display_name(slug)
         prompt = prompt_service.initial_followups_prompt(slug).format(
             name            = name,
             profile_context = snapshot[:4000],
@@ -253,8 +267,7 @@ class ChatService:
     def get_welcome_message(self, slug: str) -> str:
         """Return the welcome message for a profile, formatted with the profile name."""
         from app.services.profile_service import profile_service
-        entry      = profile_service.get_entry(slug)
-        name       = entry.name if entry else slug
+        name       = profile_service.get_display_name(slug)
         short_name = name.split()[0] if name else slug
         tmpl       = prompt_service.welcome_message(slug)
         try:
@@ -290,7 +303,7 @@ class ChatService:
                 )
             except Exception as e:
                 slog.error("LLM call failed: %s", e, exc_info=True)
-                notifier.notify_error("LLM call failed", str(e), sid)
+                notification_service.notify_llm_error("LLM call failed", str(e), sid)
                 return self._error_message(str(e))
 
             budget.add(getattr(response, "usage", None))
@@ -347,7 +360,7 @@ class ChatService:
             session_id = args.get("session_id", "")
             plog.info("Lead captured | email=%s", email)
             chat_log.info("LEAD | slug=%s | email=%s", slug, email)
-            notifier.notify_lead(name=name_val, email=email, session_id=session_id)
+            notification_service.notify_lead(name=name_val, email=email, session_id=session_id)
             return {"status": "lead recorded"}
 
         if name == "record_unknown_question":
@@ -355,38 +368,10 @@ class ChatService:
             session_id = args.get("session_id", "")
             plog.info("Unknown question logged | question=%s", question)
             chat_log.info("UNKNOWN | slug=%s | question=%s", slug, question)
-            notifier.notify_unknown(question=question, session_id=session_id)
-            # Per-owner email notification (fires only if owner opted in via preferences)            
-            if preferences_service.get(slug).get("notify_unanswered_email"):
-                owner = user_service.get_user_by_slug(slug)
-                if owner:
-                    owner_email = owner.email
-                    owner_name  = owner.name or owner_email
-                    app_url     = _settings.APP_URL.rstrip("/")
-                    vars_ = {
-                        "owner_name": owner_name,
-                        "question":   question,
-                        "session_id": session_id,
-                        "slug":       slug,
-                        "chat_url":   f"{app_url}/chat/{slug}",
-                        "owner_url":  f"{app_url}/owner/preferences",
-                    }
-                    tmpl = email_template_service.get("unanswered_question")
-                    logger.warning(
-                        "OWNER_NOTIFY_UNANSWERED | slug=%s | owner=%s | question=%s",
-                        slug, owner_email, question,
-                    )
-                    sendgrid_service.send(
-                        to_email  = owner_email,
-                        subject   = tmpl["subject"].format(**vars_),
-                        body_text = tmpl["body_text"].format(**vars_),
-                        body_html = tmpl["body_html"].format(**vars_),
-                    )
-                else:
-                    logger.warning(
-                        "OWNER_NOTIFY_UNANSWERED | slug=%s | no owner record found — email NOT sent",
-                        slug,
-                    )
+            # Pushover push + conditional owner email (NotificationService handles both)
+            notification_service.notify_unknown_question(
+                question=question, session_id=session_id, slug=slug
+            )
             return {"status": "unknown recorded"}
 
         logger.warning("Unrecognised tool called: '%s' — ignoring", name)
@@ -404,8 +389,7 @@ class ChatService:
         budget:       _TokenBudget,
     ) -> list[str]:
         from app.services.profile_service import profile_service
-        entry  = profile_service.get_entry(slug)
-        name   = entry.name if entry else slug
+        name   = profile_service.get_display_name(slug)
         prompt = prompt_service.turn_followups_prompt(slug).format(
             name            = name,
             question        = question,

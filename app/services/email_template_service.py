@@ -3,10 +3,15 @@ email_template_service.py
 --------------------------
 Manages named email templates editable by admins.
 
-Storage: system/email_templates.json
-  Falls back to built-in defaults when the file does not exist.
-  Each template has a plain-text body and an HTML body.
-  Admins may edit both bodies; placeholder variables ({...}) must be preserved.
+Storage:
+  Defaults : app/defaults/email_templates.json  (ships with the repo, never written)
+  Overrides: system/email_templates.json         (written only when admin saves changes,
+                                                  synced to HF Dataset alongside system/)
+
+On startup the service reads from app/defaults/email_templates.json.
+When an admin saves changes those are written to system/email_templates.json
+which takes priority on subsequent reads.  Deleting system/email_templates.json
+restores all templates to their built-in defaults.
 
 Currently defined templates
 ---------------------------
@@ -25,135 +30,22 @@ Available placeholders (all templates)
 
 import json
 
-from app.core.config import SYSTEM_DIR
+from app.core.config import SYSTEM_DIR, DEFAULTS_DIR
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-_STORE = SYSTEM_DIR / "email_templates.json"
+_STORE        = SYSTEM_DIR   / "email_templates.json"   # admin overrides (HF-synced)
+_DEFAULTS_FILE = DEFAULTS_DIR / "email_templates.json"  # shipped defaults (repo)
 
-# ── Built-in defaults ─────────────────────────────────────────────────────────
 
-_DEFAULTS: dict[str, dict] = {
-    "unanswered_question": {
-        "name":        "Unanswered Question",
-        "description": (
-            "Sent to the profile owner when a visitor asks a question the AI could not answer "
-            "and the owner has opted in to email notifications. "
-            "Available placeholders: {owner_name}, {question}, {session_id}, {slug}, "
-            "{chat_url}, {owner_url}."
-        ),
-        "subject": "Unanswered question on your AI profile",
-        "body_text": """\
-Hi {owner_name},
-
-A visitor asked a question your AI profile could not answer.
-
-Question: {question}
-
-Session : {session_id}
-Profile : {slug}
-
-Try your profile: {chat_url}
-Manage your profile: {owner_url}
-
-Tip: consider adding content to your documents to cover this topic.
-
-— AI Profile Platform\
-""",
-        "body_html": """\
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
-
-        <!-- Header -->
-        <tr>
-          <td style="background:#4f46e5;padding:24px 32px;">
-            <p style="margin:0;font-size:18px;font-weight:600;color:#ffffff;">AI Profile Platform</p>
-          </td>
-        </tr>
-
-        <!-- Body -->
-        <tr>
-          <td style="padding:32px;">
-            <p style="margin:0 0 6px;font-size:15px;color:#374151;">Hi {owner_name},</p>
-            <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
-              A visitor asked a question your AI profile couldn't answer.
-            </p>
-
-            <!-- Question block -->
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="background:#f9fafb;border-left:4px solid #4f46e5;border-radius:4px;padding:14px 18px;">
-                  <p style="margin:0;font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Question asked</p>
-                  <p style="margin:6px 0 0;font-size:15px;color:#111827;">{question}</p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Meta -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;border-top:1px solid #f3f4f6;padding-top:16px;">
-              <tr>
-                <td style="font-size:13px;color:#9ca3af;padding-bottom:5px;">
-                  <strong style="color:#374151;">Profile:</strong>&nbsp;{slug}
-                </td>
-              </tr>
-              <tr>
-                <td style="font-size:13px;color:#9ca3af;">
-                  <strong style="color:#374151;">Session:</strong>&nbsp;<span style="font-family:monospace;">{session_id}</span>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Tip -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
-              <tr>
-                <td style="background:#eff6ff;border-radius:8px;padding:14px 18px;">
-                  <p style="margin:0;font-size:13px;color:#1e40af;">
-                    <strong>Tip:</strong> Add content to your profile documents to help your AI answer questions like this in future.
-                  </p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- CTAs -->
-            <p style="margin:28px 0 0;text-align:center;">
-              <a href="{chat_url}"
-                 style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;
-                        font-size:14px;font-weight:600;padding:10px 24px;border-radius:8px;margin-right:8px;">
-                Try Your Profile
-              </a>
-              <a href="{owner_url}"
-                 style="display:inline-block;background:#f3f4f6;color:#374151;text-decoration:none;
-                        font-size:14px;font-weight:600;padding:10px 24px;border-radius:8px;">
-                Owner Portal
-              </a>
-            </p>
-          </td>
-        </tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #f3f4f6;">
-            <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">
-              You received this because you opted in to unanswered-question alerts.<br>
-              Manage your preferences at <a href="{owner_url}" style="color:#6366f1;">owner preferences</a>.
-            </p>
-          </td>
-        </tr>
-
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>\
-""",
-    },
-}
+def _load_defaults() -> dict[str, dict]:
+    """Load the built-in default templates from app/defaults/email_templates.json."""
+    try:
+        return json.loads(_DEFAULTS_FILE.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.error("Failed to load default email templates from %s: %s", _DEFAULTS_FILE, e)
+        return {}
 
 
 class EmailTemplateService:
@@ -168,14 +60,17 @@ class EmailTemplateService:
     def get_templates(self) -> dict[str, dict]:
         """
         Return all templates.
-        Falls back to built-in defaults if the store file is absent or corrupt.
+        Reads defaults from app/defaults/email_templates.json.
+        If system/email_templates.json exists (admin has saved changes), those
+        fields override the defaults.
         """
+        defaults = _load_defaults()
         if not _STORE.exists():
-            return _copy(_DEFAULTS)
+            return defaults
 
         try:
             raw = json.loads(_STORE.read_text(encoding="utf-8"))
-            merged = _copy(_DEFAULTS)
+            merged = _copy(defaults)
             for key, val in raw.items():
                 if key in merged and isinstance(val, dict):
                     for field in ("subject", "body_text", "body_html"):
@@ -184,7 +79,7 @@ class EmailTemplateService:
             return merged
         except Exception as e:
             logger.warning("Failed to read email_templates.json — using defaults: %s", e)
-            return _copy(_DEFAULTS)
+            return defaults
 
     def get(self, name: str) -> dict | None:
         """Return a single template by name, or None if not found."""
@@ -195,7 +90,7 @@ class EmailTemplateService:
         Update one template's subject, body_text, and body_html and persist.
         Returns True on success, False if name is unknown.
         """
-        if name not in _DEFAULTS:
+        if name not in _load_defaults():
             logger.warning("Unknown email template name: '%s'", name)
             return False
 
@@ -211,13 +106,14 @@ class EmailTemplateService:
         If name is given, restores only that template; otherwise restores all.
         """
         if name:
-            if name not in _DEFAULTS:
+            defaults = _load_defaults()
+            if name not in defaults:
                 logger.warning("Unknown email template name for restore: '%s'", name)
                 return False
             templates = self.get_templates()
-            templates[name]["subject"]   = _DEFAULTS[name]["subject"]
-            templates[name]["body_text"] = _DEFAULTS[name]["body_text"]
-            templates[name]["body_html"] = _DEFAULTS[name]["body_html"]
+            templates[name]["subject"]   = defaults[name]["subject"]
+            templates[name]["body_text"] = defaults[name]["body_text"]
+            templates[name]["body_html"] = defaults[name]["body_html"]
             result = self._save(templates)
             if result:
                 logger.info("Email template '%s' restored to default", name)

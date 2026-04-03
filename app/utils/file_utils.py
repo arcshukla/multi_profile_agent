@@ -2,10 +2,12 @@
 file_utils.py
 -------------
 Read document files into plain text. Supports PDF, TXT, CSV, DOCX, MD.
+Also provides CSS sanitization for owner-uploaded profile styles.
 
 This is the ONLY place file parsing happens. Add new format support here.
 """
 
+import re
 from pathlib import Path
 from app.core.logging_config import get_logger
 
@@ -88,3 +90,44 @@ def read_text_file(path: str | Path, default: str = "") -> str:
     except Exception as e:
         logger.warning("Could not read %s: %s", path, e)
         return default
+
+
+# ── CSS Sanitizer ─────────────────────────────────────────────────────────────
+
+# Patterns that can leak data, load remote resources, or inject scripts
+_CSS_DANGEROUS_PATTERNS: list[re.Pattern] = [
+    re.compile(r"@import\b",             re.IGNORECASE),
+    re.compile(r"url\s*\(",              re.IGNORECASE),
+    re.compile(r"expression\s*\(",       re.IGNORECASE),
+    re.compile(r"javascript\s*:",        re.IGNORECASE),
+    re.compile(r"-moz-binding\s*:",      re.IGNORECASE),
+    re.compile(r"behavior\s*:",          re.IGNORECASE),
+]
+
+
+def sanitize_css(css: str) -> tuple[str, list[str]]:
+    """
+    Reject dangerous CSS constructs that could exfiltrate visitor data or
+    inject remote content.
+
+    Scans for: @import, url(), expression(), javascript:, -moz-binding, behavior.
+
+    Returns:
+        (sanitized_css, violations)
+        - sanitized_css: the input unchanged if clean, or empty string if violations found.
+        - violations: list of matched pattern strings (empty when safe).
+
+    Callers should surface violations to the owner as a save error.
+    The entire block is rejected on any violation to prevent partial sanitization bugs.
+    """
+    violations: list[str] = []
+    for pattern in _CSS_DANGEROUS_PATTERNS:
+        match = pattern.search(css)
+        if match:
+            violations.append(match.group(0).strip())
+
+    if violations:
+        logger.warning("CSS sanitization blocked dangerous patterns: %s", violations)
+        return "", violations
+
+    return css, []
