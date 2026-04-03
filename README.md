@@ -1,21 +1,3 @@
----
-title: AI Profile Platform
-emoji: 🤖
-colorFrom: indigo
-colorTo: purple
-sdk: docker
-app_port: 7860
-pinned: false
----
-<div align="center">
-
-**Built with FastAPI · ChromaDB · OpenRouter · HuggingFace Spaces · HTMX · Tailwind CSS**
-
-_Making every professional's story conversational._
-
-[🚀 Try the Live Demo](https://arcshukla-ai-profile-platform.hf.space/)
-
-</div>
 
 <div align="center">
 
@@ -36,11 +18,11 @@ powered by their own documents, grounded by RAG, and accessible to the world.**
 
 ---
 
-[🚀 Live Demo](https://arcshukla-ai-profile-platform.hf.space/) &nbsp;·&nbsp;
-[⚡ Quick Start](#-quick-start) &nbsp;·&nbsp;
-[🏗 Architecture](#-technical-architecture) &nbsp;·&nbsp;
-[📡 API Reference](#-api-reference) &nbsp;·&nbsp;
-[⚙️ Configuration](#-configuration-reference)
+[Live Demo](https://arcshukla-ai-profile-platform.hf.space/) &nbsp;·&nbsp;
+[Quick Start](#-quick-start) &nbsp;·&nbsp;
+[Architecture](#-technical-architecture) &nbsp;·&nbsp;
+[API Reference](#-api-reference) &nbsp;·&nbsp;
+[Configuration](#-configuration-reference)
 
 </div>
 
@@ -48,31 +30,37 @@ powered by their own documents, grounded by RAG, and accessible to the world.**
 
 ## Table of Contents
 
+**Product**
 - [The Problem With Professional Profiles](#-the-problem-with-professional-profiles)
 - [The Idea](#-the-idea)
 - [Product Vision](#-product-vision)
 - [Key Features](#-key-features)
 - [Example Conversations](#-example-conversations)
+- [Business Potential](#-business-potential)
+
+**Technical**
 - [Technical Architecture](#-technical-architecture)
-- [Engineering Highlights](#-engineering-highlights)
-- [LLM & AI Design](#-llm--ai-design)
-- [RAG Pipeline Deep Dive](#-rag-pipeline-deep-dive)
+- [Technical Design — RAG, LLM & Engineering Decisions](#-technical-design--rag-llm--engineering-decisions)
 - [Tech Stack](#-tech-stack)
 - [Data & Storage Design](#-data--storage-design)
 - [Security & Access Control](#-security--access-control)
 - [Billing & Monetization](#-billing--monetization)
-- [Business Potential](#-business-potential)
+
+**Getting Started**
 - [Quick Start](#-quick-start)
 - [API Reference](#-api-reference)
 - [Configuration Reference](#-configuration-reference)
 - [Deployment — HuggingFace Spaces](#-deployment--huggingface-spaces)
+
+**Looking Forward**
 - [Roadmap](#-roadmap)
+- [Extending the Platform](#extending-the-platform)
 - [Why This Matters](#-why-this-matters)
 - [A Note on Building This](#-a-note-on-building-this)
 
 ---
 
-## 🎯 The Problem With Professional Profiles
+## The Problem With Professional Profiles
 
 > **The internet has LinkedIn. It has resumes. It has portfolios. But none of them can hold a _conversation_.**
 
@@ -95,26 +83,27 @@ Professionals spend enormous effort crafting their story: distilling years of wo
 
 ---
 
-## 💡 The Idea
+## The Idea
 
 The core insight is simple but powerful: **every professional already has rich documentation of their career** — resumes, recommendation letters, project narratives, case studies, bios. The information exists. The problem is _access and discovery_.
 
 AI Profile Platform transforms that documentation into an **interactive knowledge system**:
 
-1. A professional uploads their career documents — resume, recommendations, project write-ups, leadership narratives.
-2. An LLM-powered pipeline reads those documents and organizes them semantically by topic — experience, impact, leadership, skills, education.
-3. When a visitor asks a question, the system retrieves the most relevant sections and generates a grounded, contextual answer — in plain English, on demand.
-4. The visitor gets intelligent follow-up questions that guide deeper exploration.
+1. A professional registers with Google OAuth and lands on their owner dashboard.
+2. They upload career documents — resume, recommendations, project write-ups, leadership narratives.
+3. An LLM-powered pipeline reads those documents and organizes them semantically by topic.
+4. They write a short persona prompt, customise their chat page, and enable their profile — in under 2 minutes.
+5. Visitors ask questions; the system retrieves the most relevant document sections and generates grounded, contextual answers — in plain English, on demand.
 
 The professional doesn't write an FAQ. They don't record a scripted demo. They upload what they already have, and the AI does the rest.
 
 ```
 Visitor:   "What kind of technical problems has this person solved at scale?"
-              ↓
-        Intent classified → retrieves "experience" + "achievements" chunks
-              ↓
+              |
+        Intent classified -- retrieves "experience" + "achievements" chunks
+              |
         LLM generates a grounded answer from their actual documents
-              ↓
+              |
         Suggests: "Tell me about the platform they built"
                   "How large were the teams they led?"
                   "What was the business outcome?"
@@ -124,9 +113,9 @@ Each profile is fully isolated — its own documents, its own vector index, its 
 
 ---
 
-## 🔭 Product Vision
+## Product Vision
 
-This project is an early, working exploration of a much bigger shift happening in professional identity.
+This project is an early, working exploration of a much bigger shift in professional identity.
 
 **The conversational resume is the natural evolution of the static resume.** Just as the web made resumes hyperlinked and searchable, AI makes them interactive and explorable. The question is not whether this happens — it is who builds it well.
 
@@ -143,19 +132,19 @@ The platform as built today is a **multi-tenant SaaS foundation** that already h
 | **Career Coaching Assistant** | AI that knows a person's full history and coaches them on gaps, opportunities, and positioning |
 | **Conference / Event Profiles** | Speakers, panelists, and exhibitors get AI profiles that attendees can converse with |
 
-The technical architecture supports all of these without redesign. The multi-tenant foundation, the RAG pipeline, the isolation model — they are already production-grade.
+The multi-tenant foundation, the RAG pipeline, the isolation model — they are already production-grade. What scales from here is product depth.
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 ### For Profile Owners
 
 | Feature | Description |
 |---|---|
-| **Self-Registration** | Sign in with Google → register your profile → go live |
+| **Self-Registration** | Sign in with Google then upload, index, customise, and enable — entirely self-service in under 2 minutes |
 | **Document Upload** | Upload PDFs, DOCX, TXT, CSV, Markdown — up to 3 documents per profile |
-| **Semantic Indexing** | LLM-powered document splitting and topic extraction — not just chunking |
+| **Semantic Indexing** | LLM-powered document splitting and topic extraction — not just character chunking |
 | **Custom Persona** | Write your own system prompt — define how your AI twin speaks about you |
 | **Chat Customization** | Custom header HTML, CSS, welcome message, and follow-up question style |
 | **Lead Capture** | Visitors who share their email are logged and you're notified via Pushover instantly |
@@ -186,77 +175,106 @@ The technical architecture supports all of these without redesign. The multi-ten
 
 ---
 
-## 💬 Example Conversations
+## Example Conversations
 
-These are realistic interactions a visitor might have with an AI profile — all answers generated from the professional's own uploaded documents.
+These are realistic interactions a visitor might have — all answers generated from the professional's own uploaded documents.
 
 ---
 
 **Visitor:** _"What's her overall background?"_
 
-> **AI:** She's a senior product and engineering leader with over a decade of experience building B2B SaaS platforms. Her work spans platform engineering, data infrastructure, and 0→1 product development. She's led multi-disciplinary teams across startups and enterprise environments, with a consistent focus on turning complex technical capabilities into products that create measurable business impact.
+> **AI:** She's a senior product and engineering leader with over a decade of experience building B2B SaaS platforms. Her work spans platform engineering, data infrastructure, and 0-to-1 product development. She's led multi-disciplinary teams across startups and enterprise environments, with a consistent focus on turning complex technical capabilities into products that create measurable business impact.
 
 ---
 
 **Visitor:** _"Tell me about her leadership style."_
 
-> **AI:** She focuses on building autonomous, high-trust teams — her approach is to set clear context and outcomes, then get out of the way. She's known for investing deeply in engineering mentorship and creating the psychological safety that lets teams make bold technical decisions. Across her recommendations, colleagues consistently describe her as someone who makes the people around her better.
+> **AI:** She focuses on building autonomous, high-trust teams. Her approach is to set clear context and outcomes, then get out of the way. She's known for investing deeply in engineering mentorship and creating the psychological safety that lets teams make bold technical decisions. Colleagues consistently describe her as someone who makes the people around her better.
 
 ---
 
 **Visitor:** _"What's the most impactful platform she's built?"_
 
-> **AI:** The most referenced platform in her documents is a real-time data integration layer she architected that consolidated fragmented data pipelines into a single observable system. It reduced data latency from hours to minutes, enabled 3 downstream product teams to move independently, and became the foundational infrastructure that supported the company's expansion into enterprise accounts.
+> **AI:** The most referenced platform in her documents is a real-time data integration layer she architected that consolidated fragmented pipelines into a single observable system. It reduced data latency from hours to minutes, enabled 3 downstream product teams to move independently, and became the foundational infrastructure supporting the company's expansion into enterprise accounts.
 
 ---
 
 **Visitor:** _"What kind of roles would she be well-suited for?"_
 
-> **AI:** Based on her documented experience, she'd be a strong fit for Principal or Staff Engineer roles, Director of Engineering or VP of Engineering positions in growth-stage companies, and Head of Product roles that require both technical depth and user empathy. She has direct experience managing managers, driving architecture decisions, and partnering closely with executive stakeholders on product strategy.
+> **AI:** Based on her documented experience, she'd be a strong fit for Principal or Staff Engineer roles, Director or VP of Engineering in growth-stage companies, and Head of Product roles requiring both technical depth and user empathy. She has direct experience managing managers, driving architecture decisions, and partnering with executive stakeholders on strategy.
 
 ---
 
 **Visitor:** _"What is her approach to technical debt?"_
 
-> **AI:** Her write-ups describe a pragmatic, business-aware approach. She distinguishes between accidental complexity and strategic shortcuts — the latter consciously taken with a documented repayment plan. She's led significant refactoring programmes that she secured funding for by framing technical debt in terms of developer productivity loss and customer-facing risk, not just engineering hygiene.
+> **AI:** Her write-ups describe a pragmatic, business-aware approach. She distinguishes between accidental complexity and strategic shortcuts — the latter consciously taken with a documented repayment plan. She's led refactoring programmes that she secured funding for by framing technical debt in terms of developer productivity loss and customer-facing risk, not just engineering hygiene.
 
 ---
 
-## 🏗 Technical Architecture
+## Business Potential
+
+This platform is a working proof-of-concept for several genuinely valuable commercial products. The hard engineering is done — the question is which direction to scale.
+
+### Productization Paths
+
+| Opportunity | Business Model | Target Audience |
+|---|---|---|
+| **Conversational Resume SaaS** | Subscription per profile | Professionals in competitive job markets |
+| **Recruiter Intelligence Tool** | Seat-based B2B SaaS | Talent acquisition, staffing firms |
+| **Executive Presence Platform** | Premium + white-label | C-suite, consultants, public speakers |
+| **Conference Delegate Profiles** | Event licensing | Organizers replacing static bio pages |
+| **Team Expertise Directory** | Enterprise license | Engineering org knowledge management |
+| **Career Coaching Copilot** | Consumer subscription | Professionals building career narratives |
+
+### Why the Defensibility Is Real
+
+The platform's moat is not the AI — anyone can call the same LLM APIs. The defensibility comes from:
+
+1. **Accumulated profile data** — the more documents a professional loads, the richer their AI twin becomes. Switching costs grow with investment.
+2. **Conversation history and lead capture** — owners build a record of who visited and what they asked. That data has real CRM value that doesn't transfer.
+3. **Persona calibration** — professionals invest time tuning their system prompts. That effort compounds.
+4. **Network effects on the explore page** — a directory of AI profiles becomes more valuable as it grows, driving organic discovery and traffic.
+
+### Market Context
+
+The global HR tech market exceeds $35B. The conversational AI market is growing at ~25% annually. The intersection — AI-powered professional identity — is still wide open. LinkedIn's static profile paradigm has not fundamentally changed since 2003. This is an architectural shift waiting to happen.
+
+---
+
+## Technical Architecture
 
 ### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Public Layer                                │
-│   /explore (Profile Directory)   /chat/{slug} (AI Chat)             │
-│   /register (Self-Registration)                                     │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────────┐
-│                      FastAPI Application                            │
-│   AdminAuth Middleware (guards /admin/*)                            │
-│   ActorContext Middleware (stamps every log line: actor + req_id)   │
-│   Routes: auth · admin · owner · profiles · chat · billing         │
-└──────┬────────────────────┬───────────────────────┬────────────────┘
-       │                    │                       │
-┌──────▼──────┐    ┌────────▼────────┐    ┌─────────▼──────────────┐
-│ Auth Layer  │    │  Service Layer  │    │      RAG Engine         │
-│ Google      │    │ ChatService     │    │ Intent Classification   │
-│ OAuth 2.0   │    │ IndexService    │    │ (LLM call, temp=0.0)    │
-│ Session     │    │ BillingService  │    │         ↓               │
-│ Middleware  │    │ TokenService    │    │ Topic Metadata Filter   │
-│ Role-Based  │    │ ProfileService  │    │ (ChromaDB per-profile)  │
-│ Authz       │    └────────┬────────┘    │         ↓               │
-└─────────────┘             │             │ LLM Answer Generation   │
-                            │             │ (temp=0.2, tool calls)  │
-                    ┌───────▼───────┐     │         ↓               │
-                    │ Storage Layer │     │ Follow-up Generation    │
-                    │ Filesystem    │     │ (LLM call, temp=0.0)    │
-                    │ ChromaDB      │     └────────────────────────┘
-                    │ HF Dataset    │
-                    │ Token Ledger  │
-                    └───────────────┘
++----------------------------------------------------------------------+
+|                         Public Layer                                 |
+|   /explore (Profile Directory)   /chat/{slug} (AI Chat)              |
+|   /register (Self-Registration)                                      |
++---------------------------+------------------------------------------+
+                            |
++---------------------------v------------------------------------------+
+|                      FastAPI Application                             |
+|   AdminAuth Middleware (guards /admin/*)                             |
+|   ActorContext Middleware (stamps every log: actor + req_id)         |
+|   Routes: auth / admin / owner / profiles / chat / billing          |
++------+-------------------+-------------------+----------------------+
+       |                   |                   |
++------v------+   +--------v--------+   +------v-----------------+
+| Auth Layer  |   |  Service Layer  |   |      RAG Engine        |
+| Google      |   | ChatService     |   | 1. Intent classif.     |
+| OAuth 2.0   |   | IndexService    |   |    (LLM, temp=0.0)     |
+| Session     |   | BillingService  |   | 2. Topic metadata      |
+| Middleware  |   | TokenService    |   |    filter (ChromaDB)   |
+| Role-Based  |   | ProfileService  |   | 3. LLM answer gen.     |
+| Authz       |   +--------+--------+   |    (temp=0.2, tools)   |
++-------------+            |            | 4. Follow-up gen.      |
+                    +-------v-------+   |    (LLM, temp=0.0)     |
+                    | Storage Layer |   +------------------------+
+                    | Filesystem    |
+                    | ChromaDB      |
+                    | HF Dataset    |
+                    | Token Ledger  |
+                    +---------------+
 ```
 
 ### Request Lifecycle — Chat Turn
@@ -283,8 +301,8 @@ sequenceDiagram
     LLM-->>API: answer + optional tool_calls
 
     alt Tool call triggered
-        API->>N: record_user_details → Pushover alert to owner
-        API->>N: record_unknown_question → admin knowledge gap log
+        API->>N: record_user_details -- Pushover alert to owner
+        API->>N: record_unknown_question -- admin knowledge gap log
     end
 
     API->>LLM: Follow-up Generation (temp=0.0)<br/>"Suggest 3 next questions"
@@ -296,67 +314,9 @@ sequenceDiagram
     API-->>V: {answer, followups, session_id, tokens_used}
 ```
 
-### Component Diagram
-
-```mermaid
-graph TD
-    subgraph Public["Public Layer"]
-        E["/explore — Profile Directory"]
-        C["/chat/slug — Chat UI"]
-        R["/register — Self Registration"]
-    end
-
-    subgraph Owner["Owner Portal"]
-        OD["/owner/docs"]
-        OB["/owner/billing"]
-        OP["/owner/prompts"]
-        OT["/owner/tokens"]
-    end
-
-    subgraph Admin["Admin Dashboard"]
-        AR["/admin/registry"]
-        AM["/admin/manage/slug"]
-        AS["/admin/system"]
-    end
-
-    subgraph App["FastAPI Application"]
-        FA[Routes + HTMX Partials]
-        MW[AdminAuth Middleware]
-    end
-
-    subgraph Services["Service Layer"]
-        CS[ChatService]
-        IS[IndexService]
-        BS[BillingService]
-        TS[TokenService]
-        PS[ProfileService]
-    end
-
-    subgraph RAG["RAG Engine"]
-        LC["LLM Client (OpenRouter / Groq / OpenAI)"]
-        SE[SemanticRAG Engine]
-        DP[Prompt Service]
-    end
-
-    subgraph Storage["Storage Layer"]
-        FS[ProfileFileStorage]
-        PR[Profile Registry JSON]
-        CD[ChromaDB per-profile]
-        HF[HuggingFace Dataset Sync]
-        TL[Token Ledger JSONL]
-    end
-
-    Public --> App
-    Owner --> App
-    Admin --> App
-    App --> Services
-    Services --> RAG
-    Services --> Storage
-```
-
 ### User Journeys
 
-**Journey 1 — Professional registers their profile:**
+**Journey 1 — Professional registers and goes live (fully self-service):**
 
 ```mermaid
 flowchart TD
@@ -364,13 +324,13 @@ flowchart TD
     B --> C{Known user?}
     C -->|Yes| D["/owner/dashboard"]
     C -->|No| E["/register form"]
-    E --> F[Enter name — slug auto-generated]
-    F --> G[Profile created — pending admin approval]
-    G --> H[Admin enables the profile]
-    H --> I["Upload documents: resume · recommendations · projects"]
+    E --> F[Enter name -- slug auto-generated]
+    F --> D
+    D --> I["Upload documents: resume / recommendations / projects"]
     I --> J["Trigger Indexing: LLM splits docs into topic-tagged chunks"]
-    J --> K["Customize: header HTML · CSS · system prompt · welcome message"]
-    K --> L([Profile live at /chat/your-name])
+    J --> K["Customise: header HTML / CSS / system prompt / welcome message"]
+    K --> L[Enable profile -- toggle in Owner Settings]
+    L --> M([Profile live at /chat/your-name])
 ```
 
 **Journey 2 — Visitor discovers and chats:**
@@ -378,14 +338,14 @@ flowchart TD
 ```mermaid
 flowchart TD
     A([Visitor lands on /explore]) --> B[Search or browse profiles]
-    B --> C[Click profile  /chat/archana-shukla]
+    B --> C[Click profile -- /chat/archana-shukla]
     C --> D[Welcome message + 3 initial follow-up questions]
     D --> E[Visitor types or clicks a question]
     E --> F[AI retrieves relevant doc chunks via RAG]
     F --> G[LLM generates grounded answer]
     G --> H[3 contextual follow-up questions generated]
     H --> I{Visitor shares email?}
-    I -->|Yes| J[record_user_details tool call — lead logged + owner notified]
+    I -->|Yes| J[record_user_details tool -- lead logged + owner notified]
     I -->|No| K[Conversation continues]
     J --> K
     K --> E
@@ -393,145 +353,30 @@ flowchart TD
 
 ---
 
-## 🔬 Engineering Highlights
+## Technical Design — RAG, LLM & Engineering Decisions
 
-### 1. LLM-Powered Semantic Splitting — Not Naive Chunking
+This section covers how the AI works end to end — from document ingestion to the final answer — and the reasoning behind each design decision.
+
+### The RAG Pipeline
+
+#### Indexing — LLM-Powered Semantic Splitting
 
 Most RAG systems split documents by character count or sentence boundary — a blunt instrument that creates chunks with no semantic coherence. When a chunk straddles two topics, neither retrieval path finds it well.
 
-This system uses an **LLM to read each document and split it into named topic sections**. A resume is divided into `experience`, `education`, `skills`, `awards`, and `recommendations` sections. The LLM understands document structure, not just character position.
-
-```
-Input:  "resume.pdf" (raw text, ~3,000 words)
-         ↓
-LLM prompt: "Split into topic-labeled sections from: contact, summary,
-             experience, education, skills, awards, recommendations, other.
-             Return JSON: [{topic, text}, ...]"
-         ↓
-Output: [
-          {"topic": "experience", "text": "Led a team of 12 engineers..."},
-          {"topic": "awards",     "text": "IEEE Best Paper Award 2022..."},
-          ...
-        ]
-```
-
-Each chunk is stored in ChromaDB with its topic as metadata. The knowledge is organized _before_ it is ever queried.
-
-### 2. Intent-Driven Metadata Retrieval
-
-Instead of pure approximate nearest-neighbor (ANN) embedding search, retrieval works in two stages:
-
-1. **Intent Classification** (LLM, temp=0.0, ~200 tokens): A fast, cheap LLM call classifies the visitor's query into one or more topic labels. _"What platforms has she built?"_ → `["experience", "achievements"]`.
-2. **Metadata Filter Fetch**: ChromaDB retrieves chunks where `topic IN [classified_topics]`, then ranks by cosine similarity within that filtered set.
-
-This eliminates the common RAG failure mode where a topically relevant chunk gets missed because its embedding doesn't happen to be close to the query in vector space. When someone asks about leadership, they always get leadership chunks — not whichever chunks happened to embed near the word "leadership."
-
-### 3. Two-Tier Prompt Architecture
-
-The system prompt has two layers assembled at runtime on every chat request:
-
-```
-┌──────────────────────────────────────────────────┐
-│  Owner-Editable Layer  (stored per-profile)      │
-│  • Persona definition                            │
-│  • Allowed topic scope                           │
-│  • Tone and response style instructions          │
-│  • Welcome message and follow-up style           │
-└────────────────────┬─────────────────────────────┘
-                     │ appended at runtime
-┌────────────────────▼─────────────────────────────┐
-│  Locked System Suffix  (platform-controlled)     │
-│  • Grounding rules (stay on professional topics) │
-│  • Tool call JSON schema                         │
-│  • Output format constraints                     │
-│  • Injected document context                     │
-└──────────────────────────────────────────────────┘
-```
-
-Owners have meaningful creative control over their AI twin's personality while the platform ensures the AI never goes off the rails — grounding rules are locked and cannot be overridden by persona instructions.
-
-### 4. Tool Calling for Real-World Side Effects
-
-The AI is equipped with two function tools that turn conversations into real-world actions:
-
-```python
-# Lead Capture — fires when a visitor shares their email
-record_user_details(email: str, name: str = None, notes: str = None)
-# → Logs contact info to per-profile leads file
-# → Sends instant Pushover notification to the profile owner
-
-# Knowledge Gap Detection — fires when the AI cannot answer
-record_unknown_question(question: str)
-# → Logs the gap to admin audit trail
-# → Notifies admin to add better source material
-```
-
-Both tools execute transparently — the visitor sees a seamless conversation, while behind the scenes the owner may receive a lead notification and the admin a content gap alert, in real time.
-
-### 5. Idempotent Indexing via Content Hashing
-
-Every document chunk is assigned an ID computed from the SHA-256 hash of its content. When indexing reruns (re-upload, force reindex), ChromaDB silently skips chunks with the same hash. The pipeline is fully idempotent — safe to run multiple times with zero duplication risk.
-
-### 6. Groq Compatibility Layer
-
-Groq does not support `response_format` and `tools` in the same API request. Rather than requiring separate code paths, the LLM client detects the Groq base URL and automatically injects JSON formatting instructions into the system message — overriding the `response_format` parameter transparently. Switching LLM providers is a one-line `.env` change.
-
-### 7. Per-Request Actor Context in Logging
-
-Every log line carries the authenticated actor and a short request ID, stamped by middleware:
-
-```
-INFO  archana@gmail.com#3f8a1b  ChatService: intent classified → ['experience', 'achievements']
-INFO  anon#c2d4e9               SemanticRAGEngine: 4 chunks retrieved for 'leadership' query
-INFO  admin@gmail.com#9b2f3c    IndexService: indexing complete → 47 chunks stored
-```
-
-Even under high concurrency, every log line from a single request is correlated — no detective work required when debugging production issues.
-
----
-
-## 🧠 LLM & AI Design
-
-### LLM Provider Flexibility
-
-The platform uses the **OpenAI SDK wire protocol** — compatible with any OpenAI-compatible API:
-
-| Provider | Use Case | Notes |
-|---|---|---|
-| **OpenRouter** | Production default | Access to 100+ models via single API key |
-| **OpenAI** | Direct API | GPT-4o, GPT-4o-mini, o1-mini |
-| **Groq** | Fast / cost-effective dev | Auto-handled: no `response_format` + `tools` conflict |
-| **Any OpenAI-compatible** | Self-hosted / custom | Set `OPENROUTER_BASE_URL` in `.env` |
-
-### LLM Operations by Type
-
-| Operation | Temperature | Max Tokens | Purpose |
-|---|---|---|---|
-| **Chat (main answer)** | 0.2 | 400 | Answer visitor questions grounded in documents |
-| **Intent classification** | 0.0 | 200 | Classify query into topic labels for retrieval |
-| **Document splitting** | 0.1 | 4000 | Extract topic-tagged sections from raw document text |
-| **Follow-up generation** | 0.0 | 300 | Generate 3 contextually relevant next questions |
-
-Three separate LLM calls happen per chat turn. The intent and follow-up calls are cheap (200–300 tokens each). Total cost per turn is approximately 1,500–2,000 tokens with GPT-4o-mini — fractions of a cent per conversation.
-
----
-
-## 🔍 RAG Pipeline Deep Dive
-
-### Indexing Pipeline
+This system uses an **LLM to read each document and divide it into named topic sections**. A resume becomes `experience`, `education`, `skills`, `awards`, and `recommendations` sections. The LLM understands document structure, not just character position.
 
 ```mermaid
 flowchart TD
     A(["Document File: PDF / DOCX / TXT / CSV / MD"]) --> B
 
     subgraph Reader["Document Reader"]
-        B["PyMuPDF fast PDF extract → PyPDF fallback\npython-docx · built-in text"]
+        B["PyMuPDF fast PDF extract -- PyPDF fallback / python-docx / built-in text"]
     end
 
     B --> C[Raw Text]
 
     subgraph Split["LLM-Powered Splitting  (temp=0.1)"]
-        C --> D["Prompt: Split into topic-labeled sections\nTopics: contact · summary · experience\neducation · skills · awards · recommendations · other\nReturn JSON: [{topic, text}, ...]"]
+        C --> D["Prompt: Split into topic-labeled sections\nTopics: contact / summary / experience\neducation / skills / awards / recommendations / other\nReturn JSON: [{topic, text}, ...]"]
     end
 
     D --> E["Sections: [{topic: experience, text: ...}, ...]"]
@@ -539,19 +384,23 @@ flowchart TD
     subgraph Ingest["ChromaDB Ingestion"]
         E --> F["ID = SHA-256 hash of content"]
         F --> G{Hash already indexed?}
-        G -->|Yes| H[Skip — idempotent, zero duplication]
-        G -->|No| I["Store chunk\nmetadata: topic · source\ndistance metric: cosine"]
+        G -->|Yes| H[Skip -- idempotent, zero duplication]
+        G -->|No| I["Store chunk\nmetadata: topic / source / distance: cosine"]
     end
 ```
 
-### Retrieval Pipeline
+Every chunk ID is a SHA-256 hash of its content — so re-running indexing after a re-upload silently skips already-stored chunks. The pipeline is fully idempotent.
+
+#### Retrieval — Intent-Driven Metadata Filtering
+
+Instead of pure approximate nearest-neighbor (ANN) embedding search, retrieval works in two stages:
 
 ```mermaid
 flowchart TD
     Q(["Visitor Query: 'What platforms did she build?'"]) --> IC
 
-    subgraph IC["Intent Classification  (LLM, temp=0.0)"]
-        A["Which topics are relevant?\nReturn from: contact · summary · experience\neducation · skills · awards · other"]
+    subgraph IC["Intent Classification  (LLM, temp=0.0, ~200 tokens)"]
+        A["Which topics are relevant?\nReturn from: contact / summary / experience\neducation / skills / awards / other"]
     end
 
     IC --> TL["topic_list = ['experience', 'summary']"]
@@ -568,19 +417,109 @@ flowchart TD
     F --> G(["Grounded Answer"])
 ```
 
-### Why Topic-Based Retrieval Over Pure ANN?
-
-Pure vector similarity search can miss topically relevant content when query phrasing doesn't align well with document embeddings — a real problem for short factual questions about a person. Topic-based metadata filtering ensures:
+**Why not pure vector search?** ANN search can miss topically relevant content when query phrasing doesn't align well with document embeddings. Topic-based metadata filtering ensures:
 
 - Questions about career history **always** retrieve `experience` chunks
 - Questions about credentials **always** retrieve `education` chunks
 - Questions about recognition **always** retrieve `awards` chunks
 
-Cosine similarity then ranks within the filtered set. You get the precision of structured retrieval combined with the semantic ranking of vector search.
+Cosine similarity then ranks within the filtered set — precision of structured retrieval combined with the semantic ranking of vector search.
 
 ---
 
-## 🛠 Tech Stack
+### The LLM Layer
+
+#### Provider Flexibility
+
+The platform uses the **OpenAI SDK wire protocol** — compatible with any OpenAI-compatible API:
+
+| Provider | Use Case | Notes |
+|---|---|---|
+| **OpenRouter** | Production default | Access to 100+ models via single API key |
+| **OpenAI** | Direct API | GPT-4o, GPT-4o-mini, o1-mini |
+| **Groq** | Fast / cost-effective dev | Auto-handled: no `response_format` + `tools` conflict |
+| **Any OpenAI-compatible** | Self-hosted / custom | Set `OPENROUTER_BASE_URL` in `.env` |
+
+Switching providers is a one-line `.env` change.
+
+#### LLM Operations and Cost
+
+Three separate LLM calls happen per chat turn, each tuned independently:
+
+| Operation | Temperature | Max Tokens | Purpose |
+|---|---|---|---|
+| **Chat (main answer)** | 0.2 | 400 | Answer visitor questions grounded in documents |
+| **Intent classification** | 0.0 | 200 | Classify query into topic labels — cheap and deterministic |
+| **Document splitting** | 0.1 | 4000 | Extract topic-tagged sections from raw document text |
+| **Follow-up generation** | 0.0 | 300 | Generate 3 contextually relevant next questions |
+
+Intent and follow-up calls are cheap (200–300 tokens each). Total cost per chat turn is approximately 1,500–2,000 tokens with GPT-4o-mini — fractions of a cent per conversation.
+
+#### Groq Compatibility
+
+Groq does not support `response_format` and `tools` in the same request. The LLM client detects the Groq base URL and automatically injects JSON formatting instructions into the system message — overriding `response_format` transparently. No code changes needed when switching providers.
+
+---
+
+### Other Engineering Decisions
+
+#### Two-Tier Prompt Architecture
+
+The system prompt assembles two layers at runtime on every chat request:
+
+```
++--------------------------------------------------+
+|  Owner-Editable Layer  (stored per-profile)      |
+|  * Persona definition                            |
+|  * Allowed topic scope                           |
+|  * Tone and response style instructions          |
+|  * Welcome message and follow-up style           |
++--------------------+-----------------------------+
+                     | appended at runtime
++--------------------v-----------------------------+
+|  Locked System Suffix  (platform-controlled)     |
+|  * Grounding rules (stay on professional topics) |
+|  * Tool call JSON schema                         |
+|  * Output format constraints                     |
+|  * Injected document context                     |
++--------------------------------------------------+
+```
+
+Owners have meaningful creative control over their AI twin's personality while the platform ensures the AI stays grounded. Grounding rules are locked and cannot be overridden by persona instructions.
+
+#### Tool Calling for Real-World Side Effects
+
+The AI is equipped with two function tools that turn conversations into real-world actions:
+
+```python
+# Lead Capture -- fires when a visitor shares their email
+record_user_details(email: str, name: str = None, notes: str = None)
+# -> Logs contact info to per-profile leads file
+# -> Sends instant Pushover notification to the profile owner
+
+# Knowledge Gap Detection -- fires when the AI cannot answer
+record_unknown_question(question: str)
+# -> Logs the gap to admin audit trail
+# -> Notifies admin to add better source material
+```
+
+Both tools execute transparently — the visitor sees a seamless conversation, while the owner may receive a lead notification and the admin a content gap alert in real time.
+
+#### Per-Request Actor Context in Logging
+
+Every log line carries the authenticated actor and a short request ID, stamped by middleware before the request reaches any route handler:
+
+```
+INFO  archana@gmail.com#3f8a1b  ChatService: intent classified -> ['experience', 'achievements']
+INFO  anon#c2d4e9               SemanticRAGEngine: 4 chunks retrieved for 'leadership' query
+INFO  admin@gmail.com#9b2f3c    IndexService: indexing complete -> 47 chunks stored
+```
+
+Even under high concurrency, every log line from a single request is correlated — no detective work required when debugging.
+
+---
+
+## Tech Stack
 
 ### Core Framework
 
@@ -593,7 +532,7 @@ Cosine similarity then ranks within the filtered set. You get the precision of s
 | **Validation** | Pydantic v2 | Strict typing for all API models and configuration |
 | **CSS** | Tailwind CSS v4 | Utility-first, compiled per deployment |
 
-### AI & LLM
+### AI and LLM
 
 | Component | Technology | Rationale |
 |---|---|---|
@@ -602,7 +541,7 @@ Cosine similarity then ranks within the filtered set. You get the precision of s
 | **Embeddings** | ChromaDB default (sentence-transformers) | No external embedding API dependency |
 | **RAG Strategy** | LLM topic splitting + metadata filter | Semantic accuracy over keyword distance luck |
 
-### Authentication & Security
+### Authentication and Security
 
 | Component | Technology | Rationale |
 |---|---|---|
@@ -610,7 +549,7 @@ Cosine similarity then ranks within the filtered set. You get the precision of s
 | **Sessions** | Starlette SessionMiddleware | Signed cookies, server-side state |
 | **Authorization** | Custom middleware + FastAPI deps | Role-based: `admin` / `owner` / anonymous |
 
-### Storage & Persistence
+### Storage and Persistence
 
 | Component | Technology | Rationale |
 |---|---|---|
@@ -623,7 +562,7 @@ Cosine similarity then ranks within the filtered set. You get the precision of s
 
 | Format | Library | Notes |
 |---|---|---|
-| **PDF** | PyMuPDF → PyPDF (fallback) | PyMuPDF is ~10x faster; PyPDF handles edge cases |
+| **PDF** | PyMuPDF -> PyPDF (fallback) | PyMuPDF is ~10x faster; PyPDF handles edge cases |
 | **DOCX** | python-docx | Native paragraph extraction |
 | **TXT / MD / CSV** | Built-in | Direct read, size-checked |
 
@@ -638,43 +577,43 @@ Cosine similarity then ranks within the filtered set. You get the precision of s
 
 ---
 
-## 💾 Data & Storage Design
+## Data & Storage Design
 
 ### Filesystem Layout
 
 ```
 multiprofile/
-├── profiles/                          # All profile data — one folder per professional
-│   └── {slug}/
-│       ├── photo.jpg                  # Profile avatar
-│       ├── docs/                      # Uploaded source documents
-│       │   ├── resume.pdf
-│       │   ├── recommendations.txt
-│       │   └── projects.md
-│       ├── chromadb/                  # Per-profile vector index (ChromaDB persistent)
-│       │   ├── chroma.sqlite3
-│       │   └── index/
-│       └── config/
-│           ├── header.html            # Custom chat page header HTML
-│           ├── profile.css            # Custom styles
-│           └── prompts.py             # Owner-editable persona + prompt config
-│
-├── system/                            # Platform-wide data
-│   ├── profiles.json                  # Profile registry (all profiles + metadata)
-│   ├── users.json                     # User to role + slug mapping
-│   ├── billing.json                   # Billing tiers + invoice history
-│   ├── token_usage.json               # Aggregated token counts per profile
-│   └── token_ledger.jsonl             # Append-only per-operation token log
-│
-├── logs/                              # Structured application logs
-│   ├── app.log
-│   ├── indexing.log
-│   ├── chat.log
-│   └── profile_{slug}.log             # Per-profile activity stream
-│
-└── static/
-    └── qr/                            # Generated UPI QR code PNGs
-        └── inv_{id}.png
++-- profiles/                          # All profile data -- one folder per professional
+|   +-- {slug}/
+|       +-- photo.jpg                  # Profile avatar
+|       +-- docs/                      # Uploaded source documents
+|       |   +-- resume.pdf
+|       |   +-- recommendations.txt
+|       |   +-- projects.md
+|       +-- chromadb/                  # Per-profile vector index (ChromaDB persistent)
+|       |   +-- chroma.sqlite3
+|       |   +-- index/
+|       +-- config/
+|           +-- header.html            # Custom chat page header HTML
+|           +-- profile.css            # Custom styles
+|           +-- prompts.py             # Owner-editable persona + prompt config
+|
++-- system/                            # Platform-wide data
+|   +-- profiles.json                  # Profile registry (all profiles + metadata)
+|   +-- users.json                     # User to role + slug mapping
+|   +-- billing.json                   # Billing tiers + invoice history
+|   +-- token_usage.json               # Aggregated token counts per profile
+|   +-- token_ledger.jsonl             # Append-only per-operation token log
+|
++-- logs/                              # Structured application logs
+|   +-- app.log
+|   +-- indexing.log
+|   +-- chat.log
+|   +-- profile_{slug}.log             # Per-profile activity stream
+|
++-- static/
+    +-- qr/                            # Generated UPI QR code PNGs
+        +-- inv_{id}.png
 ```
 
 ### Key Data Schemas
@@ -707,14 +646,14 @@ multiprofile/
 
 ---
 
-## 🔒 Security & Access Control
+## Security & Access Control
 
 ### Role Model
 
 | Role | Access Scope | How Granted |
 |---|---|---|
 | **Anonymous** | `/explore`, `/chat/{slug}`, `/register` | Default — no login required |
-| **Owner** | `/owner/*` — own profile only, slug locked to session | Google OAuth → known user in `users.json` |
+| **Owner** | `/owner/*` — own profile only, slug locked to session | Google OAuth -> known user in `users.json` |
 | **Admin** | `/admin/*` — full platform control | Email listed in `ADMIN_EMAILS` env var |
 
 ### Key Security Properties
@@ -727,7 +666,7 @@ multiprofile/
 | **Session integrity** | Signed + encrypted cookies via `itsdangerous` |
 | **HTTPS enforcement** | Forced on HF Spaces (proxy-aware redirect logic) |
 | **No code execution** | Documents are read as text only — no `eval`, no `exec`, no script parsing |
-| **Atomic writes** | Registry writes via `.json.tmp` → atomic rename (crash-safe) |
+| **Atomic writes** | Registry writes via `.json.tmp` -> atomic rename (crash-safe) |
 
 ### Authentication Flow
 
@@ -735,21 +674,21 @@ multiprofile/
 flowchart TD
     REQ(["Incoming request to /admin or /owner"]) --> MW[AdminAuth Middleware]
     MW --> S{Session cookie present?}
-    S -->|No| LOGIN["Redirect to /login — Google OAuth"]
+    S -->|No| LOGIN["Redirect to /login -- Google OAuth"]
     S -->|Yes| ROLE{User role?}
-    ROLE -->|admin| ADMIN["Allow /admin — redirect /owner to /admin"]
-    ROLE -->|owner| OWNER["Allow /owner — slug locked to session"]
-    ROLE -->|IS_LOCAL=true| BYPASS["Bypass all auth — dev mode only"]
-    LOGIN --> GOOGLE["Google OAuth 2.0: openid · email · profile"]
+    ROLE -->|admin| ADMIN["Allow /admin -- redirect /owner to /admin"]
+    ROLE -->|owner| OWNER["Allow /owner -- slug locked to session"]
+    ROLE -->|IS_LOCAL=true| BYPASS["Bypass all auth -- dev mode only"]
+    LOGIN --> GOOGLE["Google OAuth 2.0: openid / email / profile"]
     GOOGLE --> CB["/auth/callback"]
     CB --> KNOWN{Known user in users.json?}
-    KNOWN -->|Yes| SESSION[Set session — role + slug]
-    KNOWN -->|No| REGISTER["/register — new profile flow"]
+    KNOWN -->|Yes| SESSION[Set session -- role + slug]
+    KNOWN -->|No| REGISTER["/register -- new profile flow"]
 ```
 
 ---
 
-## 💳 Billing & Monetization
+## Billing & Monetization
 
 ### Billing Tiers
 
@@ -759,7 +698,7 @@ flowchart TD
 | `paid_individual` | Monthly UPI invoice (amount configurable via env) |
 | `paid_enterprise` | Custom billing — Phase 2 |
 
-### Invoice & Payment Flow
+### Invoice and Payment Flow
 
 ```mermaid
 sequenceDiagram
@@ -773,49 +712,19 @@ sequenceDiagram
     BS->>BS: Render QR code PNG to static/qr/inv_id.png
 
     Owner->>Owner: Visit /owner/billing
-    Owner->>UPI: Scan QR code — pre-filled payment
+    Owner->>UPI: Scan QR code -- pre-filled payment
     UPI->>UPI: Complete payment
     Owner->>Admin: Notify payment done
 
     Admin->>BS: confirm_payment(slug, invoice_id)
-    BS->>BS: status=PAID · paid_at + confirmed_by recorded
+    BS->>BS: status=PAID / paid_at + confirmed_by recorded
 ```
 
 > **Phase 2**: Automated Razorpay / Stripe webhooks — eliminating the manual confirmation step entirely.
 
 ---
 
-## 💼 Business Potential
-
-This platform is a working proof-of-concept for several genuinely valuable commercial products. The hard engineering is done — the question is which direction to take it.
-
-### Productization Paths
-
-| Opportunity | Model | Target Audience |
-|---|---|---|
-| **Conversational Resume SaaS** | Subscription per profile | Professionals in competitive job markets |
-| **Recruiter Intelligence Tool** | Seat-based B2B SaaS | Talent acquisition, staffing firms |
-| **Executive Presence Platform** | Premium + white-label | C-suite, consultants, public speakers |
-| **Conference Delegate Profiles** | Event licensing | Conference organizers replacing static bio pages |
-| **Team Expertise Directory** | Enterprise license | Engineering org knowledge management |
-| **Career Coaching Copilot** | Consumer subscription | Professionals building career narratives |
-
-### Why the Defensibility Is Real
-
-The platform's moat is not the AI — anyone can call the same LLM APIs. The defensibility comes from:
-
-1. **Accumulated profile data** — the more documents a professional loads, the richer and more accurate their AI twin becomes. Switching costs grow with investment.
-2. **Conversation history and lead capture** — owners build a record of who visited and what they asked. That data has real CRM value that doesn't transfer.
-3. **Persona calibration** — professionals invest time tuning their system prompts. That effort compounds over time.
-4. **Network effects on the explore page** — a directory of AI profiles becomes more valuable as it grows, driving organic discovery and traffic.
-
-### Market Context
-
-The global HR tech market exceeds $35B. The conversational AI market is growing at ~25% annually. The intersection — AI-powered professional identity — is still wide open. LinkedIn's static profile paradigm has not fundamentally changed since 2003. This is an architectural shift waiting to happen.
-
----
-
-## ⚡ Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -833,8 +742,6 @@ cd ai-profile-platform
 # 2. Create virtual environment
 python -m venv venv
 source venv/bin/activate       # Windows: venv\Scripts\activate
-# or with uv:
-uv venv && .venv\Scripts\activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
@@ -856,7 +763,7 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 SESSION_SECRET_KEY=any-random-string-for-local-dev
 ADMIN_EMAILS=your-email@gmail.com
 
-# Dev mode — disables all auth checks
+# Dev mode -- disables all auth checks
 IS_LOCAL=true
 ```
 
@@ -865,23 +772,28 @@ IS_LOCAL=true
 uvicorn app.main:app --reload --host 0.0.0.0 --port 7860
 
 # 6. Open in browser:
-# http://localhost:7860/admin       → Admin dashboard (full platform control)
-# http://localhost:7860/explore     → Public profile directory
-# http://localhost:7860/chat/slug   → Any profile's AI chat interface
+# http://localhost:7860/admin       -- Admin dashboard
+# http://localhost:7860/explore     -- Public profile directory
+# http://localhost:7860/register    -- Owner self-registration
 ```
 
-### First Profile in 5 Minutes
+### Go Live in Under 2 Minutes — Owner Self-Service
 
-1. Visit `http://localhost:7860/admin`
-2. **Registry tab** → Create Profile → enter a name (e.g. "Jane Doe")
-3. **Manage tab** → Select "Jane Doe" → upload documents (resume, bio, project write-ups)
-4. **Manage tab** → Click "Index Documents" → wait for completion
-5. **Registry tab** → Enable the profile
-6. Visit `http://localhost:7860/chat/jane-doe` — the AI profile is live and chatting
+This is the standard path for any professional creating their own profile:
+
+1. Visit `/register` -- sign in with Google -- enter your name (slug is auto-generated)
+2. Land on your **Owner Dashboard** at `/owner/dashboard`
+3. **Documents** tab -- upload your resume, recommendations, or any career documents
+4. **Documents** tab -- click "Index Documents" and wait ~30 seconds
+5. **Appearance / AI** tabs -- customise your persona prompt, header, and welcome message
+6. **Settings** -- toggle your profile **Enabled**
+7. Share your link: `http://localhost:7860/chat/your-name` — you're live
+
+> Admins can also create and manage profiles on behalf of users from `/admin/registry`.
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 Full Swagger docs available at `/docs` when running locally.
 
@@ -947,7 +859,7 @@ Content-Type: application/json
 
 ---
 
-## ⚙️ Configuration Reference
+## Configuration Reference
 
 | Variable | Default | Required | Description |
 |---|---|---|---|
@@ -972,7 +884,7 @@ Content-Type: application/json
 
 ---
 
-## ☁️ Deployment — HuggingFace Spaces
+## Deployment — HuggingFace Spaces
 
 The platform is designed to run **for free on HuggingFace Spaces** with persistent storage via HF Datasets.
 
@@ -984,12 +896,12 @@ HuggingFace Spaces use ephemeral containers — every restart wipes the filesyst
 flowchart LR
     subgraph Write["Every Write Operation"]
         W1[ProfileFileStorage.save] --> W2[Local Filesystem]
-        W1 --> W3["hf_sync.push_file — background thread"]
-        W3 --> HF[("HuggingFace Dataset Repo\nprivate · S3-backed")]
+        W1 --> W3["hf_sync.push_file -- background thread"]
+        W3 --> HF[("HuggingFace Dataset Repo\nprivate / S3-backed")]
     end
 
     subgraph Restart["On Space Restart"]
-        R1[startup event] --> R2["hf_sync.pull() — snapshot_download"]
+        R1[startup event] --> R2["hf_sync.pull() -- snapshot_download"]
         R2 --> HF
         HF --> R3["Restore profiles/ + system/"]
         R3 --> R4["Rebuild ChromaDB from synced documents"]
@@ -1051,7 +963,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 
 ---
 
-## 🗺 Roadmap
+## Roadmap
 
 ### Phase 2 — Scale & Automate
 
@@ -1063,7 +975,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 ### Phase 3 — Analytics & Growth
 
 - [ ] **Chat analytics dashboard** — volume, session depth, most-asked questions, unanswered gaps
-- [ ] **A/B prompt testing** — compare answer quality and visitor engagement across prompt variants
+- [ ] **A/B prompt testing** — compare answer quality and engagement across prompt variants
 - [ ] **Multi-language support** — auto-detect visitor language, prompts and responses adapt
 - [ ] **Custom domains** — CNAME support for white-labelled `/chat/{slug}` pages
 - [ ] **Embedding model choice** — swap sentence-transformers for `text-embedding-3-small` etc.
@@ -1071,7 +983,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 
 ### Phase 4 — Enterprise
 
-- [ ] **Team profiles** — index an entire engineering organization, query by skill or project
+- [ ] **Team profiles** — index an entire engineering org, query by skill or project
 - [ ] **Hiring integrations** — ATS plugins (Greenhouse, Lever, Ashby)
 - [ ] **Analytics API** — export conversation signals to CRM / BI tooling
 - [ ] **SSO** — SAML / OIDC for enterprise deployments
@@ -1086,11 +998,11 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 
 **Add a new field to profiles** — add to `ProfileEntry` in [app/models/profile_models.py](app/models/profile_models.py). The JSON registry is schema-flexible; no migration required.
 
-**Replace file storage with a database** — implement the same interfaces as `ProfileRegistryStore` and `ProfileFileStorage` backed by SQLAlchemy + S3, and swap the singletons in [app/storage/](app/storage/). The service layer requires zero changes.
+**Replace file storage with a database** — implement the same interfaces as `ProfileRegistryStore` and `ProfileFileStorage` backed by SQLAlchemy + S3, swap the singletons in [app/storage/](app/storage/). The service layer requires zero changes.
 
 ---
 
-## 🌍 Why This Matters
+## Why This Matters
 
 We are at an inflection point in how professional identity works.
 
@@ -1098,32 +1010,30 @@ For the past two decades, professional discovery has been fundamentally static. 
 
 AI changes the direction of that work. Instead of the reader interpreting static data, the AI meets the reader where they are — answering the specific question they have, in the context they bring to it.
 
-**This has real consequences for hiring:** A recruiter spending 30 seconds on a PDF will miss most of what makes someone exceptional. A 10-minute conversation with an AI that knows everything they've built will not.
+**For hiring:** A recruiter spending 30 seconds on a PDF will miss most of what makes someone exceptional. A 10-minute conversation with an AI profile will not.
 
-**This has real consequences for professionals:** Senior people have career stories that a one-page resume cannot contain. An AI profile that draws on the full richness of their documented experience gives them a genuine competitive advantage in situations where it matters most.
+**For professionals:** Senior people have career stories that a one-page resume cannot contain. An AI profile that draws on the full richness of their documented experience gives them a genuine competitive advantage.
 
-**This has real consequences for organizations:** Team knowledge is largely invisible and undiscoverable. Indexing expertise at the organizational level is an unsolved problem that AI can finally address at scale.
-
-The technical barriers to making this real — RAG grounding, prompt safety, multi-tenant isolation, cost-efficient LLM orchestration — are exactly what this platform is built to solve.
+**For organizations:** Team knowledge is largely invisible and undiscoverable at scale. Indexing expertise at the organizational level is an unsolved problem that AI can finally address.
 
 The conversational professional profile is not a feature. It is the next interface layer for professional identity.
 
 ---
 
-## 🗒 A Note on Building This
+## A Note on Building This
 
 This project grew out of a real question: _what would it look like if professionals could present their career through an interactive AI interface rather than a static document?_
 
-The first version was a single-profile experiment — one person's resume, one ChromaDB collection, one system prompt. What emerged quickly was that the interesting problems were not in the LLM integration itself (that part is relatively straightforward today) but in the surrounding architecture: multi-tenancy, prompt safety, retrieval quality, operational visibility, and the economics of running LLM workloads per-profile at low cost.
+The first version was a single-profile experiment — one person's resume, one ChromaDB collection, one system prompt. What emerged quickly was that the interesting problems were not in the LLM integration itself but in the surrounding architecture: multi-tenancy, prompt safety, retrieval quality, operational visibility, and the economics of running LLM workloads per-profile at low cost.
 
 Each of those problems turned out to be more interesting than the last:
 
-- Naive chunking produced retrieval failures on short factual questions → led to LLM-powered semantic splitting
-- ANN search missed topically obvious chunks → led to intent-driven metadata filtering
-- Owners wanted control over their AI twin's voice but the platform needed safety guarantees → led to the two-tier prompt architecture
-- HuggingFace Spaces have no persistent storage → led to the HF Dataset sync-on-write pattern
+- Naive chunking produced retrieval failures on short factual questions -- led to LLM-powered semantic splitting
+- ANN search missed topically obvious chunks -- led to intent-driven metadata filtering
+- Owners wanted control over their AI twin's voice but the platform needed safety guarantees -- led to the two-tier prompt architecture
+- HuggingFace Spaces have no persistent storage -- led to the HF Dataset sync-on-write pattern
 
-The result is a platform that works in production, costs pennies per conversation, deploys to a free hosting tier, and preserves its state across container restarts — an architecture that is genuinely difficult to arrive at without going through the problems it solves.
+The result is a platform that works in production, costs pennies per conversation, deploys to a free hosting tier, and preserves its state across container restarts.
 
 ---
 
@@ -1133,7 +1043,7 @@ The result is a platform that works in production, costs pennies per conversatio
 
 _Making every professional's story conversational._
 
-[🚀 Try the Live Demo](https://arcshukla-ai-profile-platform.hf.space/)
+[Try the Live Demo](https://arcshukla-ai-profile-platform.hf.space/)
 
 </div>
 
