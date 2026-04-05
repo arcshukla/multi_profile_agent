@@ -41,8 +41,9 @@ from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-# Directory names anywhere in a path that must never be pushed to HF
-_EXCLUDED_DIRS = {"chromadb"}
+# Directory names anywhere in a path that must never be pushed to HF.
+# chromadb_new is the atomic-swap staging directory — never persisted to HF.
+_EXCLUDED_DIRS = {"chromadb", "chromadb_new"}
 
 
 class HFSync:

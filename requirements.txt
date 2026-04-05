@@ -18,7 +18,11 @@ pydantic-settings>=2.3.0
 # LLM
 openai>=1.30.0
 
-# Vector database
+# Vector database — exact pin required.
+# chromadb 1.x switched to Rust bindings (RustBindingsAPI) which fail to load
+# on Windows and some Linux builds without the native chroma_rust extension.
+# 0.5.23 uses the stable pure-Python/ONNX stack that works everywhere.
+# If the installed version has drifted, run: pip install -r requirements.txt --force-reinstall
 chromadb==0.5.23
 
 # Document reading

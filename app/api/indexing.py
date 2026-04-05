@@ -1,9 +1,8 @@
 """
 api/indexing.py  —  Document indexing endpoints
 """
-import asyncio
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from app.models.api_models import IndexRequest, IndexStatusResponse, SuccessResponse
+from app.models.api_models import IndexStatusResponse, SuccessResponse
 from app.services.index_service import index_service
 from app.services.profile_service import profile_service
 from app.core.logging_config import get_logger
@@ -21,30 +20,15 @@ def get_index_status(slug: str):
 
 
 @router.post("")
-def trigger_index(slug: str, req: IndexRequest, background_tasks: BackgroundTasks):
-    """
-    Trigger indexing in the background.
-    Returns immediately; poll GET /index for status.
-    """
+def trigger_index(slug: str, background_tasks: BackgroundTasks):
+    """Trigger a full index rebuild in the background. Returns immediately; poll GET /index for status."""
     if not profile_service.profile_exists(slug):
         raise HTTPException(404, f"Profile '{slug}' not found")
     if index_service.is_indexing(slug):
         return {"message": "Indexing already in progress", "status": "running"}
 
-    background_tasks.add_task(index_service.index_profile, slug, req.force)
+    background_tasks.add_task(index_service.index_profile, slug)
     return SuccessResponse(message=f"Indexing started for '{slug}'")
-
-
-@router.post("/force")
-def force_reindex(slug: str, background_tasks: BackgroundTasks):
-    """Force full reindex — wipes existing ChromaDB first."""
-    if not profile_service.profile_exists(slug):
-        raise HTTPException(404, f"Profile '{slug}' not found")
-    if index_service.is_indexing(slug):
-        return {"message": "Indexing already in progress", "status": "running"}
-
-    background_tasks.add_task(index_service.force_reindex, slug)
-    return SuccessResponse(message=f"Force reindex started for '{slug}'")
 
 
 # ── System-level history (all profiles) ──────────────────────────────────────

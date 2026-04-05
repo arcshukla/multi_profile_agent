@@ -1,4 +1,6 @@
-{% if not chunks and total == 0 %}
+{% if indexing %}
+<p class="text-xs text-blue-500 italic animate-pulse">Indexing in progress — chunks will appear once complete.</p>
+{% elif not chunks and total == 0 %}
 <p class="text-xs text-gray-400 italic">No chunks indexed yet.</p>
 {% else %}
 <div class="space-y-2 max-h-96 overflow-y-auto mt-2">

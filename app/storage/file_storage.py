@@ -19,8 +19,10 @@ No business logic here — pure I/O.
 """
 
 import copy
+import gc
 import json
 import shutil
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -250,13 +252,59 @@ class ProfileFileStorage:
     # ── ChromaDB path ─────────────────────────────────────────────────────────
 
     def chroma_path(self) -> str:
-        """Return the ChromaDB persistence path for this profile."""
+        """Return the ChromaDB persistence path for this profile (canonical)."""
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
         return str(self.chroma_dir)
 
+    @property
+    def chroma_dir_new(self) -> Path:
+        return self.base / f"{PROFILE_CHROMADB_DIR}_new"
+
+    def chroma_path_new(self) -> str:
+        """Return a fresh temp ChromaDB path for atomic-swap indexing."""
+        if self.chroma_dir_new.exists():
+            shutil.rmtree(self.chroma_dir_new)
+        self.chroma_dir_new.mkdir(parents=True, exist_ok=True)
+        return str(self.chroma_dir_new)
+
+    def delete_chroma_new(self) -> None:
+        """Remove the temp index directory (cleanup after a failed indexing attempt)."""
+        if self.chroma_dir_new.exists():
+            try:
+                shutil.rmtree(self.chroma_dir_new)
+                logger.info("Removed temp ChromaDB index for profile '%s'", self.slug)
+            except OSError as e:
+                logger.warning("Could not remove temp ChromaDB dir for '%s': %s", self.slug, e)
+
+    def swap_chroma(self, retries: int = 5, delay: float = 1.0) -> None:
+        """
+        Atomically replace the canonical index with the newly-built temp index.
+        1. Delete the old chromadb/ directory.
+        2. Rename chromadb_new/ → chromadb/.
+        Caller must have closed all engines pointing at both paths first.
+
+        On Windows, SQLite file handles may linger briefly after the client
+        is stopped. Retry with back-off to accommodate this.
+        """
+        if self.chroma_dir.exists():
+            gc.collect()  # nudge CPython to release lingering file handles
+            for attempt in range(1, retries + 1):
+                try:
+                    shutil.rmtree(self.chroma_dir)
+                    break
+                except PermissionError:
+                    if attempt == retries:
+                        raise
+                    logger.debug(
+                        "swap_chroma: rmtree attempt %d/%d failed for '%s', retrying in %.1fs",
+                        attempt, retries, self.slug, delay,
+                    )
+                    time.sleep(delay)
+        self.chroma_dir_new.rename(self.chroma_dir)
+        logger.info("Swapped ChromaDB index for profile '%s'", self.slug)
+
     def delete_chroma(self) -> None:
-        """Wipe the ChromaDB index (force reindex)."""
+        """Wipe the canonical ChromaDB index directory (and leave it deleted — caller recreates)."""
         if self.chroma_dir.exists():
             shutil.rmtree(self.chroma_dir)
-            self.chroma_dir.mkdir(parents=True, exist_ok=True)
-            logger.info("Cleared ChromaDB index for profile '%s'", self.slug)
+            logger.info("Deleted ChromaDB index for profile '%s'", self.slug)

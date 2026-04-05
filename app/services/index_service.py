@@ -41,11 +41,12 @@ _state_lock = threading.Lock()                   # protects _engines / _indexing
 _currently_indexing: set[str] = set()            # slugs actively being indexed right now
 _startup_pending: set[str] = set()              # slugs queued for on-demand index (triggered, not yet running)
 
-# Cache for _last_indexed_entry() — reading the full index_history.log on every
-# get_status() call (called once per profile on every admin list page) is the
-# single biggest performance bottleneck.  Cached per slug; invalidated when
-# _record_event() records a new success entry for that slug.
-_last_entry_cache: dict[str, Optional[dict]] = {}   # slug → {timestamp, duration_seconds} or None
+# Status caches — avoids scanning index_history.log on every get_status() call.
+# _last_success_cache: last successful run → {timestamp, duration_seconds}
+# _last_run_cache:     last run of ANY status → {status, timestamp, error}
+# Both are populated by _record_event() and on first cache-miss scan.
+_last_entry_cache: dict[str, Optional[dict]] = {}   # slug → last SUCCESS {timestamp, duration_seconds}
+_last_run_cache:   dict[str, Optional[dict]] = {}   # slug → last run of any status
 
 
 def _get_lock(slug: str) -> threading.Lock:
@@ -83,7 +84,7 @@ def trigger_on_demand(slug: str) -> None:
     logger.info("On-demand index: triggered for '%s' (first visitor arrival)", slug)
     threading.Thread(
         target=index_service.index_profile,
-        args=(slug, False),
+        args=(slug,),
         daemon=True,
         name=f"on-demand-index-{slug}",
     ).start()
@@ -94,10 +95,9 @@ class IndexService:
     Document indexing service.
 
     Entry points:
-      index_profile(slug, force)   — run ingestion (blocking)
-      get_engine(slug)             — get cached RAG engine for chat
-      get_status(slug)             — current index status
-      force_reindex(slug)          — wipe index + re-run ingestion
+      index_profile(slug)  — wipe existing index and re-ingest all documents
+      get_engine(slug)     — get cached RAG engine for chat
+      get_status(slug)     — current index status for admin UI
     """
 
     # ── Engine factory / cache ────────────────────────────────────────────────
@@ -138,13 +138,9 @@ class IndexService:
 
     # ── Indexing ──────────────────────────────────────────────────────────────
 
-    def index_profile(self, slug: str, force: bool = False) -> dict:
+    def index_profile(self, slug: str) -> dict:
         """
-        Ingest all documents for a profile.
-
-        Args:
-            slug:  Profile slug
-            force: If True, wipe existing index first
+        Ingest all documents for a profile. Always wipes the existing index first.
 
         Returns:
             {"status": "success"|"failed", "document_count": n, "duration_seconds": n}
@@ -157,26 +153,20 @@ class IndexService:
         _currently_indexing.add(slug)
         start = time.time()
         try:
-            return self._run_indexing(slug, force)
+            return self._run_indexing(slug)
         finally:
             lock.release()
             _currently_indexing.discard(slug)
             _startup_pending.discard(slug)
 
-    def _run_indexing(self, slug: str, force: bool) -> dict:
+    def _run_indexing(self, slug: str) -> dict:
         fs = ProfileFileStorage(slug)
         plog = get_profile_logger(slug)
-        plog.info("Indexing started | slug=%s | force=%s", slug, force)
-        indexing_log.info("Indexing started | slug=%s | force=%s", slug, force)
+        plog.info("Indexing started | slug=%s", slug)
+        indexing_log.info("Indexing started | slug=%s", slug)
 
         if not fs.exists():
             return self._record_event(slug, INDEX_STATUS_FAILED, 0, 0, error="Profile folder not found")
-
-        if force:
-            plog.info("Force reindex: clearing ChromaDB for '%s'", slug)
-            self.evict_engine(slug)
-            drop_client_cache(fs.chroma_path())
-            fs.delete_chroma()
 
         doc_count = fs.document_count()
         if doc_count == 0:
@@ -184,18 +174,43 @@ class IndexService:
             return self._record_event(slug, INDEX_STATUS_SUCCESS, 0, 0)
 
         start = time.time()
+        new_engine = None
         try:
-            engine = build_profile_rag(
-                db_path=fs.chroma_path(),
+            # Build into a fresh temp directory so the old index stays live for chat
+            # during the entire (potentially slow) LLM split + embed pass.
+            new_engine = build_profile_rag(
+                db_path=fs.chroma_path_new(),   # profiles/<slug>/chromadb_new/
                 slug=slug,
                 on_tokens=lambda op, p, c, t: token_service.record(slug, op, p, c, t),
             )
-            # Replace cached engine
-            with _state_lock:
-                _engines[slug] = engine
-
-            new_chunks = engine.ingest_all(fs.docs_dir)
+            new_chunks = new_engine.ingest_all(fs.docs_dir)
             duration = round(time.time() - start, 2)
+
+            # ── Atomic swap ───────────────────────────────────────────────────
+            # Close temp engine first so all SQLite file handles are released
+            # before we rename the directory (mandatory on Windows, good hygiene on Linux).
+            new_engine.close()
+            new_engine = None
+            # Use raw path strings — do NOT call chroma_path_new() here, it
+            # would delete+recreate the directory we just finished indexing into.
+            drop_client_cache(str(fs.chroma_dir_new))
+
+            # Evict old engine (closes its client) and drop its manager cache entry.
+            self.evict_engine(slug)
+            drop_client_cache(str(fs.chroma_dir))
+
+            # Delete old chromadb/, rename chromadb_new/ → chromadb/.
+            fs.swap_chroma()
+
+            # Rebuild final engine from canonical path and cache it for chat.
+            final_engine = build_profile_rag(
+                db_path=fs.chroma_path(),   # chroma_path() creates dir + returns str
+                slug=slug,
+                on_tokens=lambda op, p, c, t: token_service.record(slug, op, p, c, t),
+            )
+            with _state_lock:
+                _engines[slug] = final_engine
+            # ─────────────────────────────────────────────────────────────────
 
             plog.info(
                 "Indexing complete | slug=%s | docs=%d | new_chunks=%d | %.1fs",
@@ -205,12 +220,16 @@ class IndexService:
 
         except Exception as e:
             duration = round(time.time() - start, 2)
+            # Close temp engine if still open, then clean up temp directory.
+            if new_engine is not None:
+                try:
+                    new_engine.close()
+                except Exception:
+                    pass
+            drop_client_cache(str(fs.chroma_dir_new))  # raw path — don't recreate the dir
+            fs.delete_chroma_new()
             plog.error("Indexing failed | slug=%s | error=%s", slug, e, exc_info=True)
             return self._record_event(slug, INDEX_STATUS_FAILED, doc_count, duration, error=str(e))
-
-    def force_reindex(self, slug: str) -> dict:
-        """Wipe index and re-run ingestion from scratch."""
-        return self.index_profile(slug, force=True)
 
     def is_indexing(self, slug: str) -> bool:
         return slug in _currently_indexing
@@ -225,11 +244,16 @@ class IndexService:
         """
         Return current index status for a profile.
 
-        Returns dict with: status, chunk_count, document_count, last_indexed
+        Returns dict with: status, chunk_count, document_count, last_indexed,
+                           duration_seconds, last_error
         """
         if self.is_indexing(slug):
             fs = ProfileFileStorage(slug)
-            return {"status": INDEX_STATUS_RUNNING, "chunk_count": 0, "document_count": fs.document_count(), "last_indexed": None}
+            return {
+                "status": INDEX_STATUS_RUNNING, "chunk_count": 0,
+                "document_count": fs.document_count(), "last_indexed": None,
+                "duration_seconds": None, "last_error": None,
+            }
 
         fs = ProfileFileStorage(slug)
         engine = self.get_engine(slug)
@@ -241,24 +265,33 @@ class IndexService:
                 slug, e,
             )
             chunk_count = 0
-        doc_count = fs.document_count()
-        last_entry = self._last_indexed_entry(slug)
-        last_indexed = last_entry["timestamp"] if last_entry else None
-        last_duration = last_entry["duration_seconds"] if last_entry else None
+        doc_count    = fs.document_count()
+        last_entry   = self._last_indexed_entry(slug)
+        last_indexed = last_entry["timestamp"]        if last_entry else None
+        last_duration= last_entry["duration_seconds"] if last_entry else None
+
+        # Determine last run outcome (may differ from last indexed — e.g. failed after a past success)
+        last_run  = _last_run_cache.get(slug)  # populated by _record_event on this process
+        last_error = last_run.get("error") if last_run else None
 
         if chunk_count > 0:
             status = INDEX_STATUS_SUCCESS
+            last_error = None  # don't show stale errors when the index is healthy
+        elif last_run and last_run.get("status") == INDEX_STATUS_FAILED:
+            status = INDEX_STATUS_FAILED
         elif last_indexed:
-            # Indexing ran but produced 0 chunks (LLM split may have failed)
+            # Indexing ran but produced 0 chunks (LLM split failed)
             status = "empty"
         else:
             status = "not_indexed"
+
         return {
             "status":           status,
             "chunk_count":      chunk_count,
             "document_count":   doc_count,
             "last_indexed":     last_indexed,
             "duration_seconds": last_duration,
+            "last_error":       last_error,
         }
 
     # ── History ───────────────────────────────────────────────────────────────
@@ -286,8 +319,12 @@ class IndexService:
         except Exception as e:
             logger.error("Failed to write index history: %s", e)
 
-        # Update the per-slug cache immediately so get_status() doesn't need to
-        # re-scan the full log file on the very next request.
+        # Update caches immediately so get_status() reflects the outcome instantly.
+        _last_run_cache[slug] = {
+            "status":    status,
+            "timestamp": entry["timestamp"],
+            "error":     error,
+        }
         if status == INDEX_STATUS_SUCCESS:
             _last_entry_cache[slug] = {
                 "timestamp":        entry["timestamp"],
@@ -295,6 +332,7 @@ class IndexService:
             }
         elif status == "purged":
             _last_entry_cache[slug] = None
+            _last_run_cache[slug]   = None
 
         return entry
 
@@ -310,7 +348,8 @@ class IndexService:
             }
             with open(history_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry) + "\n")
-            _last_entry_cache[slug] = None   # invalidate so next get_status() reflects the purge
+            _last_entry_cache[slug] = None
+            _last_run_cache[slug]   = None
             logger.info("Index history purge marker written for '%s'", slug)
         except Exception as e:
             logger.warning("Failed to write purge marker for '%s': %s", slug, e)
@@ -327,12 +366,14 @@ class IndexService:
         if slug in _last_entry_cache:
             return _last_entry_cache[slug]
 
-        # Cache miss — scan the log file once and populate the cache entry.
+        # Cache miss — scan the log file once and populate both caches.
         history_file = settings.INDEX_HISTORY_FILE
         if not history_file.exists():
             _last_entry_cache[slug] = None
+            _last_run_cache[slug]   = None
             return None
-        last: Optional[dict] = None
+        last_success: Optional[dict] = None
+        last_run:     Optional[dict] = None
         try:
             for line in history_file.read_text(encoding="utf-8").splitlines():
                 line = line.strip()
@@ -343,19 +384,27 @@ class IndexService:
                     if entry.get("profile_slug") != slug:
                         continue
                     status = entry.get("status")
-                    if status == INDEX_STATUS_SUCCESS:
-                        last = {
-                            "timestamp":        entry.get("timestamp"),
-                            "duration_seconds": entry.get("duration_seconds"),
+                    if status == "purged":
+                        last_success = None
+                        last_run     = None
+                    elif status in (INDEX_STATUS_SUCCESS, INDEX_STATUS_FAILED):
+                        last_run = {
+                            "status":    status,
+                            "timestamp": entry.get("timestamp"),
+                            "error":     entry.get("error"),
                         }
-                    elif status == "purged":
-                        last = None  # reset — prior incarnation of this slug
+                        if status == INDEX_STATUS_SUCCESS:
+                            last_success = {
+                                "timestamp":        entry.get("timestamp"),
+                                "duration_seconds": entry.get("duration_seconds"),
+                            }
                 except json.JSONDecodeError:
                     continue
         except Exception as e:
             logger.warning("Could not read index history for '%s': %s", slug, e)
-        _last_entry_cache[slug] = last
-        return last
+        _last_entry_cache[slug] = last_success
+        _last_run_cache[slug]   = last_run
+        return last_success
 
     def get_history(self, slug: Optional[str] = None, limit: int = 100) -> list[dict]:
         """

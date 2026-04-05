@@ -52,6 +52,13 @@ def get_collection(db_path: str, collection_name: str = CHROMA_COLLECTION_NAME):
 
 
 def drop_client_cache(db_path: str) -> None:
-    """Remove a client from the cache (call after deleting the chroma folder)."""
+    """Stop the ChromaDB client and remove it from the cache."""
     with _lock:
-        _clients.pop(db_path, None)
+        client = _clients.pop(db_path, None)
+    if client is not None:
+        try:
+            client._system.stop()
+            client.clear_system_cache()
+            logger.debug("Stopped cached ChromaDB client for '%s'", db_path)
+        except Exception as e:
+            logger.warning("Failed to stop cached ChromaDB client for '%s': %s", db_path, e)

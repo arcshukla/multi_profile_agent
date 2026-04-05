@@ -46,16 +46,14 @@ class ChatResponse(BaseModel):
 # Indexing
 # ---------------------------------------------------------------------------
 
-class IndexRequest(BaseModel):
-    force: bool = False
-
-
 class IndexStatusResponse(BaseModel):
     slug: str
-    status: str          # "not_indexed" | "indexed" | "indexing" | "failed"
+    status: str                    # "not_indexed" | "success" | "running" | "failed" | "empty"
     chunk_count: int = 0
     document_count: int = 0
     last_indexed: Optional[str] = None
+    duration_seconds: Optional[float] = None
+    last_error: Optional[str] = None
 
 
 class IndexHistoryEntry(BaseModel):

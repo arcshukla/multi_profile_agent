@@ -12,7 +12,7 @@ from typing import Callable, Optional
 
 from app.rag.semantic_rag_engine import SemanticRAGEngine
 from app.core.constants import DEFAULT_PROFILE_TOPICS, CHROMA_COLLECTION_NAME
-from app.core.logging_config import get_logger
+from app.core.logging_config import get_logger, get_profile_logger
 
 logger = get_logger(__name__)
 
@@ -41,7 +41,8 @@ def build_profile_rag(
 
     prompts = llm_prompts_service.get_prompts()
 
-    logger.info("Building ProfileRAG for '%s' at %s", slug, db_path)
+    plog = get_profile_logger(slug)
+    plog.info("Building ProfileRAG for '%s' at %s", slug, db_path)
     return SemanticRAGEngine(
         topic_labels    = PROFILE_TOPICS,
         split_prompt    = prompts["split_prompt"]["content"],
@@ -49,4 +50,5 @@ def build_profile_rag(
         db_path         = db_path,
         collection_name = CHROMA_COLLECTION_NAME,
         on_tokens       = on_tokens,
+        logger          = plog,
     )

@@ -395,19 +395,10 @@ def tokens_redirect():
 
 @router.post("/index")
 async def owner_index(background_tasks: BackgroundTasks, user: dict = Depends(require_owner)):
-    """Start indexing in background."""
+    """Start full index rebuild in background."""
     slug = _slug(user)
     if not index_service.is_indexing(slug):
-        background_tasks.add_task(index_service.index_profile, slug, False)
-    return RedirectResponse(url="/owner/ai?indexing=1", status_code=303)
-
-
-@router.post("/index/force")
-async def owner_force_index(background_tasks: BackgroundTasks, user: dict = Depends(require_owner)):
-    """Force full re-index (wipes existing index)."""
-    slug = _slug(user)
-    if not index_service.is_indexing(slug):
-        background_tasks.add_task(index_service.force_reindex, slug)
+        background_tasks.add_task(index_service.index_profile, slug)
     return RedirectResponse(url="/owner/ai?indexing=1", status_code=303)
 
 

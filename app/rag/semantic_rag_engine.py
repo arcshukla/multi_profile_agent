@@ -28,6 +28,8 @@ import re
 from pathlib import Path
 from typing import Callable, Optional
 
+import logging
+
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2 as _ONNXEmbedFn
@@ -36,7 +38,7 @@ from app.core.logging_config import get_logger
 from app.utils.file_utils import read_document
 from app.rag.llm_client import LLMClient
 
-logger = get_logger(__name__)
+_module_logger = get_logger(__name__)
 
 # Module-level singleton — loaded once on import, shared across all SemanticRAGEngine instances.
 # Avoids repeated ONNX model loads and suppresses the "No ONNX providers" warning.
@@ -59,6 +61,7 @@ class SemanticRAGEngine:
         db_path:         str = ".chromadb_semantic",
         collection_name: str = "semantic_docs",
         on_tokens:       Optional[Callable[[str, int, int, int], None]] = None,
+        logger:          Optional[logging.Logger] = None,
     ) -> None:
         if not topic_labels:
             raise ValueError("topic_labels must not be empty")
@@ -68,13 +71,14 @@ class SemanticRAGEngine:
         self.intent_prompt = intent_prompt
         self.on_tokens     = on_tokens
         self.llm           = LLMClient()
+        self._log          = logger or _module_logger
 
         self._client = chromadb.PersistentClient(
             path=db_path,
             settings=ChromaSettings(anonymized_telemetry=False),
         )
         self.collection = self._get_or_create_collection(collection_name)
-        logger.info(
+        self._log.info(
             "SemanticRAGEngine ready | path='%s' | collection='%s' | %d chunks | topics=%s",
             db_path, collection_name, self.collection.count(), topic_labels,
         )
@@ -96,7 +100,7 @@ class SemanticRAGEngine:
         except ValueError as exc:
             msg = str(exc).lower()
             if "embedding function" in msg and ("conflict" in msg or "already exists" in msg):
-                logger.warning(
+                self._log.warning(
                     "Embedding function conflict on collection '%s' — wiping and recreating. "
                     "Re-indexing required. Detail: %s",
                     collection_name, exc,
@@ -113,8 +117,9 @@ class SemanticRAGEngine:
         """Release the ChromaDB connection. Call before wiping the DB directory."""
         try:
             self._client._system.stop()
+            self._client.clear_system_cache()
         except Exception as e:
-            logger.warning("ChromaDB client close failed: %s", e)
+            self._log.warning("ChromaDB client close failed: %s", e)
 
     # ── Ingestion ─────────────────────────────────────────────────────────────
 
@@ -131,19 +136,19 @@ class SemanticRAGEngine:
         try:
             raw_text = read_document(path)
         except Exception as e:
-            logger.warning("Could not read %s: %s", path, e, exc_info=True)
+            self._log.warning("Could not read %s: %s", path, e, exc_info=True)
             return 0
 
-        logger.info("Ingesting: %s | %d chars extracted", path.name, len(raw_text))
+        self._log.info("Ingesting: %s | %d chars extracted", path.name, len(raw_text))
         if not raw_text.strip():
-            logger.warning("Empty text extracted from %s — skipping", path.name)
+            self._log.warning("Empty text extracted from %s — skipping", path.name)
             return 0
         sections = self._split_into_sections(raw_text, source_name=str(path))
         if not sections:
-            logger.warning("No sections extracted from %s", path)
+            self._log.warning("No sections extracted from %s", path)
             return 0
 
-        logger.info("Parsed %d sections from %s", len(sections), path.name)
+        self._log.info("Parsed %d sections from %s", len(sections), path.name)
         added = 0
         skipped = 0
         for section in sections:
@@ -154,22 +159,19 @@ class SemanticRAGEngine:
                 continue
             chunk_id = self._chunk_id(text)
             try:
-                self.collection.add(
+                self.collection.upsert(
                     ids=[chunk_id],
                     documents=[text],
                     metadatas=[{"topic": topic, "source": path.name}],
                 )
                 added += 1
             except Exception as e:
-                err_name = type(e).__name__
-                if "unique" in str(e).lower() or "exists" in str(e).lower():
-                    logger.debug("Chunk already indexed (duplicate id=%s)", chunk_id)
-                else:
-                    logger.warning("collection.add failed | id=%s | %s: %s", chunk_id, err_name, e)
+                self._log.warning("collection.upsert failed | id=%s | source=%s | %s: %s",
+                                  chunk_id, path.name, type(e).__name__, e)
                 skipped += 1
 
-        logger.info(
-            "Ingested %s → %d new chunks, %d skipped (total: %d)",
+        self._log.info(
+            "Ingested %s → %d chunks written, %d skipped (total: %d)",
             path.name, added, skipped, self.collection.count()
         )
         return added
@@ -179,7 +181,7 @@ class SemanticRAGEngine:
         from app.core.constants import ALLOWED_DOC_EXTENSIONS
         docs_path = Path(docs_dir)
         if not docs_path.exists():
-            logger.warning("docs_dir does not exist: %s", docs_path)
+            self._log.warning("docs_dir does not exist: %s", docs_path)
             return 0
         total = 0
         for f in sorted(docs_path.iterdir()):
@@ -192,7 +194,7 @@ class SemanticRAGEngine:
         ids = self.collection.get()["ids"]
         if ids:
             self.collection.delete(ids=ids)
-        logger.info("Cleared collection '%s' (%d docs removed)", self.collection.name, len(ids))
+        self._log.info("Cleared collection '%s' (%d docs removed)", self.collection.name, len(ids))
 
     # ── Retrieval ─────────────────────────────────────────────────────────────
 
@@ -202,14 +204,16 @@ class SemanticRAGEngine:
         Falls back to a broader fetch if classification returns no results.
         """
         if self.collection.count() == 0:
+            self._log.warning("retrieve | collection is empty — no results | query=%r", query[:120])
             return []
 
         # Step 1: classify the query into topic labels
         topics = self._classify_intent(query)
-        logger.debug("Query intent: topics=%s", topics)
+        self._log.info("retrieve | query=%r | classified_topics=%s", query[:120], topics)
 
         # Step 2: fetch by topic metadata filter
         chunks = []
+        used_fallback = False
         if topics:
             for topic in topics:
                 try:
@@ -217,13 +221,19 @@ class SemanticRAGEngine:
                         where={"topic": topic},
                         include=["documents"],
                     )
-                    chunks.extend(result["documents"])
+                    fetched = result["documents"]
+                    self._log.info("retrieve | topic='%s' → %d chunk(s) fetched", topic, len(fetched))
+                    chunks.extend(fetched)
                 except Exception as e:
-                    logger.warning("ChromaDB fetch failed for topic '%s': %s", topic, e)
+                    self._log.warning("ChromaDB fetch failed | topic='%s' | query=%r | error=%s", topic, query[:80], e)
 
         # Step 3: fallback — grab top-k by position if topic fetch is empty
         if not chunks:
-            logger.debug("Topic fetch empty — falling back to first %d docs", k)
+            used_fallback = True
+            self._log.warning(
+                "retrieve | topic fetch returned 0 chunks | query=%r | topics=%s — falling back to first %d docs",
+                query[:120], topics, k,
+            )
             result = self.collection.get(include=["documents"])
             chunks = result["documents"][:k]
 
@@ -235,8 +245,13 @@ class SemanticRAGEngine:
                 seen.add(c)
                 deduped.append(c)
 
-        logger.debug("Retrieved %d chunk(s)", len(deduped[:k]))
-        return deduped[:k]
+        final = deduped[:k]
+        self._log.info(
+            "retrieve | final=%d chunk(s) returned (from %d pre-dedup) | fallback=%s | snippet='%s...'",
+            len(final), len(chunks), used_fallback,
+            final[0][:80].replace("\n", " ") if final else "",
+        )
+        return final
 
     def build_snapshot(self) -> str:
         """
@@ -262,7 +277,7 @@ class SemanticRAGEngine:
         try:
             return self.collection.count()
         except Exception as e:
-            logger.warning("chunk_count failed (stale/corrupt ChromaDB?): %s", e)
+            self._log.warning("chunk_count failed (stale/corrupt ChromaDB?): %s", e)
             return 0
 
     # ── Private helpers ───────────────────────────────────────────────────────
@@ -287,7 +302,7 @@ class SemanticRAGEngine:
             prompt_tok     = getattr(usage, "prompt_tokens",     0) or 0
             completion_tok = getattr(usage, "completion_tokens", 0) or 0
             total_tok      = getattr(usage, "total_tokens",      0) or 0
-            logger.info(
+            self._log.info(
                 "Indexing LLM call | source=%s | prompt_tokens=%d | completion_tokens=%d | total=%d",
                 source_name, prompt_tok, completion_tok, total_tok,
             )
@@ -296,21 +311,21 @@ class SemanticRAGEngine:
             sections = self._parse_llm_json(response.choices[0].message.content, fallback=[])
             if isinstance(sections, list):
                 return sections
-            logger.warning("LLM split for %s returned non-list: %r", source_name, sections)
+            self._log.warning("LLM split for %s returned non-list: %r", source_name, sections)
         except json.JSONDecodeError as e:
-            logger.warning("LLM split JSON parse failed for %s: %s", source_name, e)
+            self._log.warning("LLM split JSON parse failed for %s: %s", source_name, e)
         except Exception as e:
             try:
                 from openai import APIStatusError
                 if isinstance(e, APIStatusError) and e.status_code in (401, 402, 403, 429):
-                    logger.error(
+                    self._log.error(
                         "Fatal API error during LLM split for %s (HTTP %d) — aborting indexing: %s",
                         source_name, e.status_code, e,
                     )
                     raise
             except ImportError:
                 pass
-            logger.warning("LLM split failed for %s: %s", source_name, e, exc_info=True)
+            self._log.warning("LLM split failed for %s: %s", source_name, e, exc_info=True)
         return []
 
     def _classify_intent(self, query: str) -> list[str]:
@@ -337,17 +352,27 @@ class SemanticRAGEngine:
                     getattr(usage, "completion_tokens", 0) or 0,
                     getattr(usage, "total_tokens",      0) or 0,
                 )
-            parsed = self._parse_llm_json(response.choices[0].message.content, fallback=[])
+            raw_content = response.choices[0].message.content
+            parsed = self._parse_llm_json(raw_content, fallback=[])
             if isinstance(parsed, list):
                 valid = [t for t in parsed if t in self.topic_labels]
+                invalid = [t for t in parsed if t not in self.topic_labels]
                 if not valid:
-                    logger.debug("Intent classification returned no valid topics for query=%r", query[:80])
+                    self._log.warning(
+                        "Intent classification returned no valid topics | query=%r | raw=%r | invalid=%s",
+                        query[:80], raw_content[:120], invalid,
+                    )
+                elif invalid:
+                    self._log.warning(
+                        "Intent classification | valid=%s | unrecognised labels dropped=%s",
+                        valid, invalid,
+                    )
                 return valid
-            logger.warning("Intent classification returned non-list: %r", parsed)
+            self._log.warning("Intent classification returned non-list | query=%r | raw=%r", query[:80], parsed)
         except json.JSONDecodeError as e:
-            logger.warning("Intent classification JSON parse failed: %s", e)
+            self._log.warning("Intent classification JSON parse failed | query=%r | error=%s", query[:80], e)
         except Exception as e:
-            logger.warning("Intent classification failed: %s", e, exc_info=True)
+            self._log.warning("Intent classification failed | query=%r | error=%s", query[:80], e, exc_info=True)
         return []
 
     @staticmethod

@@ -264,31 +264,44 @@ _CHUNKS_PAGE_SIZE = 20
 
 @router.get("/admin/manage/{slug}/chunks", response_class=HTMLResponse)
 def htmx_chunks(request: Request, slug: str, page: int = Query(1, ge=1)):
-    engine      = index_service.get_engine(slug)
-    total       = engine.chunk_count() if engine else 0
-    page_size   = _CHUNKS_PAGE_SIZE
+    # Guard: engine or collection may be mid-wipe during indexing
+    if index_service.is_indexing(slug):
+        return _r(request, "admin/partials/chunks.html", {
+            "chunks": [], "slug": slug, "page": 1, "total_pages": 1,
+            "total": 0, "page_size": _CHUNKS_PAGE_SIZE,
+            "indexing": True,
+        })
+
+    engine    = index_service.get_engine(slug)
+    total     = engine.chunk_count() if engine else 0
+    page_size = _CHUNKS_PAGE_SIZE
     total_pages = max(1, (total + page_size - 1) // page_size)
     page        = min(page, total_pages)
     offset      = (page - 1) * page_size
 
     chunks = []
     if engine and total > 0:
-        result = engine.collection.get(
-            include=["documents", "metadatas"],
-            limit=page_size,
-            offset=offset,
-        )
-        for i, (doc, meta) in enumerate(
-            zip(result.get("documents", []), result.get("metadatas", [])),
-            start=offset + 1,
-        ):
-            chunks.append({
-                "i":         i,
-                "topic":     (meta or {}).get("topic", "—"),
-                "source":    (meta or {}).get("source", "—"),
-                "preview":   doc[:200],
-                "truncated": len(doc) > 200,
-            })
+        try:
+            result = engine.collection.get(
+                include=["documents", "metadatas"],
+                limit=page_size,
+                offset=offset,
+            )
+            for i, (doc, meta) in enumerate(
+                zip(result.get("documents", []), result.get("metadatas", [])),
+                start=offset + 1,
+            ):
+                chunks.append({
+                    "i":         i,
+                    "topic":     (meta or {}).get("topic", "—"),
+                    "source":    (meta or {}).get("source", "—"),
+                    "preview":   doc[:200],
+                    "truncated": len(doc) > 200,
+                })
+        except Exception as e:
+            logger.warning("htmx_chunks: collection read failed for '%s' (indexing may be in progress): %s", slug, e)
+            total = 0
+
     return _r(request, "admin/partials/chunks.html", {
         "chunks":       chunks,
         "slug":         slug,
@@ -296,6 +309,7 @@ def htmx_chunks(request: Request, slug: str, page: int = Query(1, ge=1)):
         "total_pages":  total_pages,
         "total":        total,
         "page_size":    page_size,
+        "indexing":     False,
     })
 
 
