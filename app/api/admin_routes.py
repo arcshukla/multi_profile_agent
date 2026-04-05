@@ -313,13 +313,6 @@ def htmx_chunks(request: Request, slug: str, page: int = Query(1, ge=1)):
     })
 
 
-@router.get("/admin/manage/{slug}/logs", response_class=HTMLResponse)
-def htmx_profile_logs(request: Request, slug: str):
-    result = log_service.read_log(log_type="profile", slug=slug, tail=100)
-    lines  = result.get("lines", [])
-    return _r(request, "admin/partials/profile_logs.html", {"lines": lines})
-
-
 # ── System sub-tab partials ───────────────────────────────────────────────────
 
 @router.get("/admin/system/billing", response_class=HTMLResponse)

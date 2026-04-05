@@ -638,7 +638,9 @@ function postCss(css, statusId) {
   el.textContent = 'Saving…';
   const fd = new FormData();
   fd.append('content', css);
-  fetch('/owner/appearance/css', { method: 'POST', body: fd })
+  const csrfMatch = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+  const csrfToken = csrfMatch ? csrfMatch.split('=')[1].trim() : '';
+  fetch('/owner/appearance/css', { method: 'POST', headers: { 'x-csrftoken': csrfToken }, body: fd })
     .then(r => r.text()).then(h => { el.innerHTML = h; })
     .catch(() => { el.textContent = 'Error saving.'; });
 }
